@@ -72,6 +72,11 @@ final class SessionManager: ObservableObject {
         }
     }
 
+    func validSession() async -> UserSession? {
+        await refreshSessionIfNeeded()
+        return session
+    }
+
     func signOut() async {
         guard let currentSession = session else { return }
         isLoading = true

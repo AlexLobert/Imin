@@ -69,7 +69,7 @@ struct HomeView: View {
 
     @MainActor
     private func loadAvailability() async {
-        guard let session = sessionManager.session else { return }
+        guard let session = await sessionManager.validSession() else { return }
         await viewModel.loadAvailability(session: session)
     }
 }
@@ -83,8 +83,10 @@ private extension HomeView {
                 }
 
                 statusButton(title: "Out", isSelected: viewModel.availabilityState == .out) {
-                    if let session = sessionManager.session {
-                        Task { await viewModel.updateAvailability(state: .out, session: session) }
+                    Task {
+                        if let session = await sessionManager.validSession() {
+                            await viewModel.updateAvailability(state: .out, session: session)
+                        }
                     }
                 }
             }
@@ -222,8 +224,10 @@ private extension HomeView {
     }
 
     func updateAvailabilityIn() {
-        guard let session = sessionManager.session else { return }
-        Task { await viewModel.updateAvailability(state: .inOffice, session: session) }
+        Task {
+            guard let session = await sessionManager.validSession() else { return }
+            await viewModel.updateAvailability(state: .inOffice, session: session)
+        }
     }
 
     func encodeCircles(_ circles: Set<String>) -> String {

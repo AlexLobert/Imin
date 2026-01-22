@@ -70,12 +70,12 @@ struct ChatThreadView: View {
     }
 
     private func loadMessages() async {
-        guard let session = sessionManager.session else { return }
+        guard let session = await sessionManager.validSession() else { return }
         await chatStore.loadMessages(for: thread, session: session)
     }
 
     private func sendMessage() async {
-        guard let session = sessionManager.session else { return }
+        guard let session = await sessionManager.validSession() else { return }
         let trimmed = messageText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         messageText = ""

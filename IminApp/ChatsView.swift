@@ -56,7 +56,7 @@ struct ChatsView: View {
                     ForEach(chatStore.inUsers) { user in
                         Button(action: {
                             Task {
-                                if let session = sessionManager.session,
+                                if let session = await sessionManager.validSession(),
                                    let thread = await chatStore.openThread(for: user, session: session) {
                                     path.append(thread)
                                 }
@@ -134,7 +134,7 @@ struct ChatsView: View {
     }
 
     private func loadChatData() async {
-        guard let session = sessionManager.session else { return }
+        guard let session = await sessionManager.validSession() else { return }
         await chatStore.load(session: session)
     }
 }

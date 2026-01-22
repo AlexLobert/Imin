@@ -181,8 +181,8 @@ struct SupabaseChatService: ChatServiceProtocol {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         addHeaders(to: &request, session: session)
-        let data = try await data(for: request)
-        let rows = try makeDecoder().decode([ThreadMemberRow].self, from: data)
+        let responseData = try await data(for: request)
+        let rows = try makeDecoder().decode([ThreadMemberRow].self, from: responseData)
 
         var counts: [String: Set<String>] = [:]
         for row in rows {
@@ -230,8 +230,8 @@ struct SupabaseChatService: ChatServiceProtocol {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         addHeaders(to: &request, session: session)
-        let data = try await data(for: request)
-        let rows = try makeDecoder().decode([MessageRow].self, from: data)
+        let responseData = try await data(for: request)
+        let rows = try makeDecoder().decode([MessageRow].self, from: responseData)
 
         var map: [String: MessageRow] = [:]
         for row in rows {
@@ -255,8 +255,8 @@ struct SupabaseChatService: ChatServiceProtocol {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         addHeaders(to: &request, session: session)
-        let data = try await data(for: request)
-        let rows = try makeDecoder().decode([ThreadMemberRow].self, from: data)
+        let responseData = try await data(for: request)
+        let rows = try makeDecoder().decode([ThreadMemberRow].self, from: responseData)
 
         let userIds = Set(rows.map { $0.userId })
         guard !userIds.isEmpty else { return [:] }
