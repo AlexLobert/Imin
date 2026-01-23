@@ -1,1 +1,2 @@
-Backend docs: see `Imin/backend/README_BACKEND.md`.
+Backend docs: see `backend/README_BACKEND.md`.
+Frontend: Swift sources live in `frontend/`.
