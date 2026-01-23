@@ -1,6 +1,7 @@
 from fastapi.testclient import TestClient
 
 from app.db.database import SessionLocal
+from app.db.init_db import init_db
 from app.main import app
 from app.models.session import Session
 from app.models.user import User
@@ -17,6 +18,7 @@ def _clear_db() -> None:
 
 
 def setup_function() -> None:
+    init_db()
     _clear_db()
     client.cookies.clear()
 

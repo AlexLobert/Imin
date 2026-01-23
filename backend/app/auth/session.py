@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import secrets
 
 from sqlalchemy import select
@@ -11,7 +11,7 @@ from app.models.user import User
 
 def create_session(db: OrmSession, user_id: int) -> tuple[str, datetime]:
     session_id = secrets.token_urlsafe(32)
-    created_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc).replace(tzinfo=None)
     expires_at = created_at + timedelta(days=SESSION_TTL_DAYS)
     session = SessionModel(
         session_id=session_id,
@@ -39,7 +39,8 @@ def get_user_for_session(db: OrmSession, session_id: str | None) -> User | None:
     session = db.scalar(select(SessionModel).where(SessionModel.session_id == session_id))
     if not session:
         return None
-    if session.expires_at < datetime.utcnow():
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    if session.expires_at < now:
         db.delete(session)
         db.commit()
         return None
