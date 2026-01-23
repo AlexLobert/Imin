@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		45F57D512F22FFCE00AAD914 /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = 45F57D502F22FFCE00AAD914 /* Lottie */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		456A92FB2F21BCB4004D7D82 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -52,6 +56,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				45F57D512F22FFCE00AAD914 /* Lottie in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -112,6 +117,7 @@
 			);
 			name = Iminapp;
 			packageProductDependencies = (
+				45F57D502F22FFCE00AAD914 /* Lottie */,
 			);
 			productName = Iminapp;
 			productReference = 456A92ED2F21BCB2004D7D82 /* Iminapp.app */;
@@ -195,6 +201,9 @@
 			);
 			mainGroup = 456A92E42F21BCB2004D7D82;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				45F57D4F2F22FFCE00AAD913 /* XCRemoteSwiftPackageReference "lottie-ios" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 456A92EE2F21BCB2004D7D82 /* Products */;
 			projectDirPath = "";
@@ -550,6 +559,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		45F57D4F2F22FFCE00AAD913 /* XCRemoteSwiftPackageReference "lottie-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/airbnb/lottie-ios";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 4.6.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		45F57D502F22FFCE00AAD914 /* Lottie */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 45F57D4F2F22FFCE00AAD913 /* XCRemoteSwiftPackageReference "lottie-ios" */;
+			productName = Lottie;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 456A92E52F21BCB2004D7D82 /* Project object */;
 }
