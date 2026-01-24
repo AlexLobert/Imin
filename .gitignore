@@ -1,1 +1,4 @@
 .DS_Store
+backend/.venv/
+backend/app.db
+backend/**/__pycache__/

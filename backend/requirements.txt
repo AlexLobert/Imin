@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+sqlalchemy
+pydantic[email]
+passlib[bcrypt]
+bcrypt<5
+pytest
+httpx
