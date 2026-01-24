@@ -20,6 +20,22 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
+## API Docs
+- OpenAPI JSON: `GET /openapi.json`
+- Swagger UI: `GET /docs`
+- ReDoc UI: `GET /redoc`
+
+## Export OpenAPI
+From the repo root:
+```bash
+python backend/scripts/export_openapi.py
+```
+
+Using the backend virtual environment:
+```bash
+backend/.venv/Scripts/python.exe backend/scripts/export_openapi.py
+```
+
 ## Tests
 ```bash
 pytest

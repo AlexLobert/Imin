@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "STATUS_INVALID",
+    "message": "status must be 'In' or 'Out'"
+  }
+}

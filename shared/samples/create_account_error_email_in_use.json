@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "EMAIL_IN_USE",
+    "message": "this email address is already associated with an account"
+  }
+}

@@ -26,12 +26,13 @@ def setup_function() -> None:
 def test_create_account_success() -> None:
     response = client.post(
         "/create_account",
-        json={"email": "a@example.com", "password": "StrongPass1!", "first_name": "A"},
+        json={"email": "a@example.com", "password": "StrongPass1!"},
     )
     assert response.status_code == 201
     body = response.json()
-    assert body["ok"] is True
-    assert isinstance(body["user_id"], int)
+    assert body["email"] == "a@example.com"
+    assert body["message"] == "account created"
+    assert isinstance(body["user_id"], str)
 
 
 def test_create_account_duplicate_email() -> None:
@@ -45,8 +46,10 @@ def test_create_account_duplicate_email() -> None:
     )
     assert response.status_code == 409
     assert response.json() == {
-        "ok": False,
-        "error": "this email address is already associated with an account",
+        "error": {
+            "code": "EMAIL_IN_USE",
+            "message": "this email address is already associated with an account",
+        }
     }
 
 
@@ -56,11 +59,13 @@ def test_create_account_bad_password() -> None:
         json={"email": "weak@example.com", "password": "weakpass"},
     )
     assert response.status_code == 400
-    error = response.json()["error"]
-    assert "10" in error
-    assert "capital" in error
-    assert "number" in error
-    assert "special" in error
+    payload = response.json()
+    assert payload["error"]["code"] == "PASSWORD_INVALID"
+    message = payload["error"]["message"]
+    assert "10" in message
+    assert "capital" in message
+    assert "number" in message
+    assert "special" in message
 
 
 def test_login_wrong_password() -> None:
@@ -69,7 +74,9 @@ def test_login_wrong_password() -> None:
         json={"email": "missing@example.com", "password": "StrongPass1!"},
     )
     assert response.status_code == 401
-    assert response.json() == {"ok": False, "error": "info wrong. me no open"}
+    assert response.json() == {
+        "error": {"code": "INVALID_CREDENTIALS", "message": "info wrong. me no open"}
+    }
 
 
 def test_logout_clears_auth() -> None:
