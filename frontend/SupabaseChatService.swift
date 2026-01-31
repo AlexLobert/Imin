@@ -112,35 +112,13 @@ struct SupabaseChatService: ChatServiceProtocol {
             return existing
         }
 
-        let threadUrl = try makeUrl(path: "/rest/v1/threads", queryItems: [])
-        var threadRequest = URLRequest(url: threadUrl)
-        threadRequest.httpMethod = "POST"
-        addHeaders(to: &threadRequest, session: session)
-        threadRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        threadRequest.setValue("return=representation", forHTTPHeaderField: "Prefer")
-        threadRequest.httpBody = try JSONEncoder().encode([NewThreadRow(title: nil)])
-
-        let threadData = try await data(for: threadRequest)
-        let threadRows = try makeDecoder().decode([ThreadRow].self, from: threadData)
-        guard let newThread = threadRows.first else {
-            throw SupabaseChatError.emptyResponse
-        }
-
-        let membersUrl = try makeUrl(path: "/rest/v1/thread_members", queryItems: [])
-        var membersRequest = URLRequest(url: membersUrl)
-        membersRequest.httpMethod = "POST"
-        addHeaders(to: &membersRequest, session: session)
-        membersRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        membersRequest.httpBody = try JSONEncoder().encode([
-            ThreadMemberRow(threadId: newThread.id, userId: session.userId),
-            ThreadMemberRow(threadId: newThread.id, userId: user.id)
-        ])
-
-        _ = try await data(for: membersRequest)
+        let threadId = try await createThreadWithMember(userId: user.id, session: session)
+        let newThread = try await fetchThread(threadId: threadId, session: session)
+        let title = newThread.title ?? user.name
 
         return ChatThread(
             id: newThread.id,
-            title: user.name,
+            title: title,
             participantId: user.id,
             lastMessage: nil,
             updatedAt: newThread.updatedAt
@@ -285,6 +263,53 @@ struct SupabaseChatService: ChatServiceProtocol {
         return map
     }
 
+    private func createThreadWithMember(userId: String, session: UserSession) async throws -> String {
+        let url = try makeUrl(path: "/rest/v1/rpc/create_thread_with_member", queryItems: [])
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        addHeaders(to: &request, session: session)
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode([
+            "other_user": userId,
+            "title": nil as String?
+        ])
+
+        let data = try await data(for: request)
+        if let threadId = try? JSONDecoder().decode(String.self, from: data) {
+            return threadId
+        }
+        if let threadIds = try? JSONDecoder().decode([String].self, from: data), let threadId = threadIds.first {
+            return threadId
+        }
+        if let response = try? JSONDecoder().decode(ThreadIdResponse.self, from: data), let threadId = response.threadId {
+            return threadId
+        }
+        if let responses = try? JSONDecoder().decode([ThreadIdResponse].self, from: data), let threadId = responses.first?.threadId {
+            return threadId
+        }
+        throw SupabaseChatError.emptyResponse
+    }
+
+    private func fetchThread(threadId: String, session: UserSession) async throws -> ThreadRow {
+        let url = try makeUrl(
+            path: "/rest/v1/threads",
+            queryItems: [
+                URLQueryItem(name: "select", value: "id,title,updated_at"),
+                URLQueryItem(name: "id", value: "eq.\(threadId)")
+            ]
+        )
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        addHeaders(to: &request, session: session)
+        let data = try await data(for: request)
+        let threadRows = try makeDecoder().decode([ThreadRow].self, from: data)
+        guard let thread = threadRows.first else {
+            throw SupabaseChatError.emptyResponse
+        }
+        return thread
+    }
+
     private func updateThreadTimestamp(threadId: String, session: UserSession) async throws {
         let url = try makeUrl(
             path: "/rest/v1/threads",
@@ -380,6 +405,21 @@ private struct ThreadRow: Decodable {
         case id
         case title
         case updatedAt = "updated_at"
+    }
+}
+
+private struct ThreadIdResponse: Decodable {
+    let threadId: String?
+
+    enum CodingKeys: String, CodingKey {
+        case threadId = "create_thread_with_member"
+        case id
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        threadId = try container.decodeIfPresent(String.self, forKey: .threadId)
+            ?? container.decodeIfPresent(String.self, forKey: .id)
     }
 }
 

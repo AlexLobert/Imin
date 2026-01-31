@@ -6,6 +6,7 @@ final class HomeViewModel: ObservableObject {
     @Published var isUpdatingAvailability = false
     @Published var isLoadingAvailability = false
     @Published var errorMessage: String?
+    @Published var expiresAt: Date?
 
     private let availabilityService: AvailabilityService
     private let availabilityExpiryInterval: TimeInterval
@@ -29,6 +30,8 @@ final class HomeViewModel: ObservableObject {
 #endif
             if let availability = try await availabilityService.fetchAvailability(session: session) {
                 availabilityState = availability.state
+                expiresAt = availability.expiresAt
+                await syncResetNotification()
             }
 #if DEBUG
             print("HomeViewModel loadAvailability success: \(availabilityState.rawValue)")
@@ -59,6 +62,8 @@ final class HomeViewModel: ObservableObject {
                 session: session
             )
             availabilityState = availability.state
+            self.expiresAt = availability.expiresAt
+            await syncResetNotification()
 #if DEBUG
             print("HomeViewModel updateAvailability success: \(availabilityState.rawValue)")
 #endif
@@ -69,5 +74,14 @@ final class HomeViewModel: ObservableObject {
 #endif
             availabilityState = previousState
         }
+    }
+
+    private func syncResetNotification() async {
+        guard availabilityState == .inOffice, let expiresAt else {
+            await ResetNotificationScheduler.cancel()
+            return
+        }
+
+        await ResetNotificationScheduler.schedule(expiresAt: expiresAt)
     }
 }

@@ -31,5 +31,8 @@ struct RootView: View {
                 }
             }
         }
+        .task {
+            print("API_BASE_URL =", ProcessInfo.processInfo.environment["API_BASE_URL"] ?? "nil")
+        }
     }
 }

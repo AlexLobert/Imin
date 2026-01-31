@@ -45,7 +45,10 @@ final class SessionManager: ObservableObject {
         isLoading = true
         errorMessage = nil
         do {
-            let newSession = try await authClient.verifyOtp(email: email, token: token)
+            var newSession = try await authClient.verifyOtp(email: email, token: token)
+            if newSession.email == nil {
+                newSession = newSession.withEmail(email)
+            }
             session = newSession
             try persistSession(newSession)
         } catch {
@@ -65,8 +68,9 @@ final class SessionManager: ObservableObject {
 
         do {
             let refreshed = try await authClient.refreshSession(refreshToken: currentSession.refreshToken)
-            session = refreshed
-            try persistSession(refreshed)
+            let updated = refreshed.email == nil ? refreshed.withEmail(currentSession.email) : refreshed
+            session = updated
+            try persistSession(updated)
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -87,6 +91,39 @@ final class SessionManager: ObservableObject {
             try await authClient.signOut(session: currentSession)
         } catch {
             errorMessage = error.localizedDescription
+        }
+
+        session = nil
+        try? keychain.delete(service: keychainService, account: keychainAccount)
+    }
+
+    func updateEmail(to newEmail: String) async {
+        guard let currentSession = session else { return }
+        isLoading = true
+        errorMessage = nil
+        defer { isLoading = false }
+
+        do {
+            try await authClient.updateEmail(newEmail: newEmail, session: currentSession)
+            let updated = currentSession.withEmail(newEmail)
+            session = updated
+            try persistSession(updated)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func deleteAccount() async {
+        guard let currentSession = session else { return }
+        isLoading = true
+        errorMessage = nil
+        defer { isLoading = false }
+
+        do {
+            try await authClient.deleteAccount(session: currentSession)
+        } catch {
+            errorMessage = error.localizedDescription
+            return
         }
 
         session = nil

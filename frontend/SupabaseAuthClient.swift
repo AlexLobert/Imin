@@ -5,6 +5,8 @@ protocol AuthClient {
     func verifyOtp(email: String, token: String) async throws -> UserSession
     func refreshSession(refreshToken: String) async throws -> UserSession
     func signOut(session: UserSession) async throws
+    func updateEmail(newEmail: String, session: UserSession) async throws
+    func deleteAccount(session: UserSession) async throws
 }
 
 struct SupabaseConfig {
@@ -43,6 +45,7 @@ struct SupabaseAuthClient: AuthClient {
             accessToken: response.accessToken,
             refreshToken: response.refreshToken,
             userId: response.user.id,
+            email: response.user.email ?? email,
             expiresAt: expiresAt
         )
     }
@@ -82,8 +85,33 @@ struct SupabaseAuthClient: AuthClient {
             accessToken: response.accessToken,
             refreshToken: response.refreshToken,
             userId: response.user.id,
+            email: response.user.email,
             expiresAt: expiresAt
         )
+    }
+
+    func updateEmail(newEmail: String, session: UserSession) async throws {
+        struct UpdateBody: Encodable {
+            let email: String
+        }
+
+        var request = URLRequest(url: config.url.appendingPathComponent("/auth/v1/user"))
+        request.httpMethod = "PUT"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(config.anonKey, forHTTPHeaderField: "apikey")
+        request.setValue("Bearer \(session.accessToken)", forHTTPHeaderField: "Authorization")
+        request.httpBody = try JSONEncoder().encode(UpdateBody(email: newEmail))
+
+        _ = try await data(for: request)
+    }
+
+    func deleteAccount(session: UserSession) async throws {
+        var request = URLRequest(url: config.url.appendingPathComponent("/auth/v1/user"))
+        request.httpMethod = "DELETE"
+        request.setValue(config.anonKey, forHTTPHeaderField: "apikey")
+        request.setValue("Bearer \(session.accessToken)", forHTTPHeaderField: "Authorization")
+
+        _ = try await data(for: request)
     }
 
     private func makeRequest<T: Encodable>(path: String, body: T) throws -> URLRequest {
@@ -158,6 +186,7 @@ private struct SupabaseVerifyResponse: Decodable {
 
 private struct SupabaseUser: Decodable {
     let id: String
+    let email: String?
 }
 
 private struct SupabaseErrorResponse: Decodable {

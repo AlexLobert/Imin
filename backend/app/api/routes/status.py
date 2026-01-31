@@ -7,11 +7,31 @@ from app.auth.session import get_user_for_session
 from app.config import settings
 from app.db.database import get_db
 from app.schemas.errors import ErrorResponse
-from app.schemas.status import SetStatusResponse, StatusRequest
+from app.schemas.status import SetStatusResponse, StatusRequest, StatusResponse
 from app.services.status_service import set_status as set_status_service
 
 
 router = APIRouter()
+
+
+@router.get(
+    "/status",
+    response_model=StatusResponse,
+    responses={
+        401: {"model": ErrorResponse, "description": "Unauthorized"},
+        500: {"model": ErrorResponse, "description": "Internal server error"},
+    },
+)
+def get_status(request: Request, db: OrmSession = Depends(get_db)):
+    session_id = request.cookies.get(settings.SESSION_COOKIE_NAME)
+    user = get_user_for_session(db=db, session_id=session_id)
+    if not user:
+        return error_response(
+            status_code=401,
+            code="UNAUTHORIZED",
+            message="auth required",
+        )
+    return JSONResponse(status_code=200, content={"status": user.status})
 
 
 @router.post(
