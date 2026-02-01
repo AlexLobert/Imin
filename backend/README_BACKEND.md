@@ -25,6 +25,17 @@ uvicorn app.main:app --reload
 - Swagger UI: `GET /docs`
 - ReDoc UI: `GET /redoc`
 
+## Endpoints Summary
+- Auth: `POST /create_account`, `POST /login`, `POST /logout`
+- Profile: `GET /me`, `PATCH /me`, `GET /handles/{handle}/available`
+- Status: `POST /set_status`
+- Friends: `GET /friends`, `GET /friends/unassigned`, `DELETE /friends/{friendId}`, `POST /friend-requests`, `GET /friend-requests`, `PATCH /friend-requests/{id}`, `POST /blocks`, `DELETE /blocks/{userId}`, `GET /blocks`
+- Circles: `GET /circles`, `POST /circles`, `PATCH /circles/{id}`, `DELETE /circles/{id}`, `POST /circles/{id}/members`, `DELETE /circles/{id}/members/{memberId}`
+- Chat: `GET /threads`, `POST /threads`, `GET /threads/{id}/messages`, `POST /threads/{id}/messages`, `POST /threads/{id}/read`
+- Discovery: `GET /in_now`
+- Devices: `POST /devices`, `DELETE /devices/{id}`
+- Safety: `POST /reports`
+
 ## Export OpenAPI
 From the repo root:
 ```bash

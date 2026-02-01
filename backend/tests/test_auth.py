@@ -1,25 +1,14 @@
 from fastapi.testclient import TestClient
 
-from app.db.database import SessionLocal
-from app.db.init_db import init_db
+from tests.utils import reset_db
 from app.main import app
-from app.models.session import Session
-from app.models.user import User
 
 
 client = TestClient(app)
 
 
-def _clear_db() -> None:
-    with SessionLocal() as db:
-        db.query(Session).delete()
-        db.query(User).delete()
-        db.commit()
-
-
 def setup_function() -> None:
-    init_db()
-    _clear_db()
+    reset_db()
     client.cookies.clear()
 
 
@@ -91,5 +80,5 @@ def test_logout_clears_auth() -> None:
     assert login.status_code == 200
     logout = client.post("/logout")
     assert logout.status_code == 200
-    status = client.post("/set_status", json={"status": "In"})
+    status = client.post("/set_status", json={"status": "In", "visible_circle_ids": []})
     assert status.status_code == 401

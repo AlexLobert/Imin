@@ -11,15 +11,19 @@ from app.schemas.status import SetStatusResponse, StatusRequest
 from app.services.status_service import set_status as set_status_service
 
 
-router = APIRouter()
+router = APIRouter(tags=["Status"])
 
 
 @router.post(
     "/set_status",
     response_model=SetStatusResponse,
+    summary="Set current status",
+    description="Update current user's status and visibility circles.",
+    operation_id="setStatus",
     responses={
         400: {"model": ErrorResponse, "description": "Invalid status"},
         401: {"model": ErrorResponse, "description": "Unauthorized"},
+        404: {"model": ErrorResponse, "description": "Circle not found"},
         422: {"model": ErrorResponse, "description": "Validation error (standardized)"},
         500: {"model": ErrorResponse, "description": "Internal server error"},
     },
@@ -43,8 +47,23 @@ def set_status(
             code="STATUS_INVALID",
             message="status must be 'In' or 'Out'",
         )
-    status_value = set_status_service(db=db, user=user, status=payload.status)
+    updated_user, error = set_status_service(
+        db=db,
+        user=user,
+        status=payload.status,
+        visible_circle_ids=payload.visible_circle_ids,
+    )
+    if error == "circle_not_found":
+        return error_response(
+            status_code=404,
+            code="CIRCLE_NOT_FOUND",
+            message="circle not found",
+        )
     return JSONResponse(
         status_code=200,
-        content={"status": status_value, "message": "status updated"},
+        content={
+            "status": updated_user.status,
+            "visible_circle_ids": updated_user.status_visible_circle_ids,
+            "message": "status updated",
+        },
     )
