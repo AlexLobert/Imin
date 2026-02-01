@@ -7,6 +7,10 @@ class StatusRequest(BaseModel):
     status: Literal["In", "Out"]
 
 
+class StatusResponse(BaseModel):
+    status: Literal["In", "Out"]
+
+
 class SetStatusResponse(BaseModel):
     status: Literal["In", "Out"]
     message: str

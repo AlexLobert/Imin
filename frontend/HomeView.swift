@@ -3,67 +3,74 @@ import SwiftUI
 struct HomeView: View {
     @EnvironmentObject private var sessionManager: SessionManager
     @StateObject private var viewModel = HomeViewModel()
-    @State private var selectedCircles: Set<String> = ["Inner circle"]
     @State private var showAudienceSheet = false
+    @State private var showProfileSheet = false
     @State private var pendingInUpdate = false
-    @AppStorage("audienceMode") private var audienceMode = "everyone"
-    @AppStorage("audienceCircles") private var audienceCircles = ""
+    @AppStorage("audienceSelectionMode") private var audienceSelectionMode = "everyone"
+    @AppStorage("audienceSelectionCircles") private var audienceSelectionCircles = ""
+    @AppStorage("audienceSelectionCircle") private var legacyAudienceSelectionCircle = ""
 
     private let circles = ["Inner circle", "Roommates", "Late-night crew", "Gym buddies"]
     private let friendsIn: [FriendStatus] = []
 
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [Color(red: 0.7, green: 0.88, blue: 1.0), Color(red: 0.32, green: 0.52, blue: 0.9)],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
+            Color(.systemBackground)
+                .ignoresSafeArea()
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    Text("Tonight, you're...")
-                        .font(.custom("Avenir Next", size: 22))
-                        .fontWeight(.bold)
-                        .foregroundColor(.black)
+                VStack(alignment: .leading, spacing: AppSpacing.sectionSpacing) {
+                    AppBarView(
+                        title: "",
+                        logoName: "IminLogo",
+                        logoHeight: 60,
+                        trailingSystemImage: "person.crop.circle",
+                        trailingAction: { showProfileSheet = true }
+                    )
 
-                    statusCard
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Tonight, are you...")
+                            .font(.system(size: 30, weight: .bold))
+                            .foregroundColor(.primary)
+
+                        InOutSlider(
+                            value: $viewModel.availabilityState,
+                            onInTap: handleInTap,
+                            onOutTap: handleOutTap
+                        )
+                        .frame(height: 48)
+                        .padding(.top, 4)
+                    }
 
                     if viewModel.isLoadingAvailability {
                         Text("Checking your status...")
-                            .font(.custom("Avenir Next", size: 13))
-                            .foregroundColor(.black.opacity(0.7))
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(.secondary)
                     }
 
-                    visibilityCard
+                    audienceSection
 
-                    friendsCard
+                    friendsSection
 
                     if let errorMessage = viewModel.errorMessage {
                         Text(errorMessage)
-                            .font(.custom("Avenir Next", size: 14))
-                            .foregroundColor(.black)
-                            .padding(.vertical, 4)
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.primary)
                     }
                 }
-                .padding(24)
+                .padding(AppSpacing.screenPadding)
             }
         }
         .task(id: sessionManager.session?.userId) {
             await loadAvailability()
         }
-        .onAppear {
-            selectedCircles = decodeCircles(from: audienceCircles, fallback: selectedCircles)
-        }
         .sheet(isPresented: $showAudienceSheet) {
-            AudienceSheet(
-                circles: circles,
-                selectedCircles: $selectedCircles,
-                audienceMode: $audienceMode,
-                onConfirm: handleAudienceConfirm
-            )
-            .presentationDetents([.medium])
+            AudiencePickerSheet(circles: circles, selection: audienceSelectionBinding)
+                .presentationDetents([.medium])
+        }
+        .sheet(isPresented: $showProfileSheet) {
+            ProfileView()
+                .environmentObject(sessionManager)
         }
     }
 
@@ -75,135 +82,89 @@ struct HomeView: View {
 }
 
 private extension HomeView {
-    var statusCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 12) {
-                statusButton(title: "In", isSelected: viewModel.availabilityState == .inOffice) {
-                    handleInTap()
-                }
-
-                statusButton(title: "Out", isSelected: viewModel.availabilityState == .out) {
-                    Task {
-                        if let session = await sessionManager.validSession() {
-                            await viewModel.updateAvailability(state: .out, session: session)
-                        }
-                    }
-                }
+    var audienceSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Button(action: {
+                showAudienceSheet = true
+            }) {
+                ListRow(title: "Visible to", value: audienceSelection.label, showsDivider: false)
             }
+            .buttonStyle(.plain)
 
-            Text("Auto-resets in 8 hours so you don't get stuck \"in.\"")
-                .font(.custom("Avenir Next", size: 13))
-                .foregroundColor(.black.opacity(0.7))
+            Divider()
+                .background(AppColors.separator)
         }
-        .padding(18)
-        .background(Color(red: 0.98, green: 0.95, blue: 0.85))
-        .cornerRadius(22)
-        .overlay(
-            RoundedRectangle(cornerRadius: 22)
-                .stroke(Color.black.opacity(0.1), lineWidth: 1)
-        )
     }
 
-    var visibilityCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Who sees you in?")
-                .font(.custom("Avenir Next", size: 16))
-                .fontWeight(.bold)
-
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 120), spacing: 8)], spacing: 8) {
-                ForEach(circles, id: \.self) { circle in
-                    let isSelected = selectedCircles.contains(circle)
-                    Button(action: {
-                        if isSelected {
-                            selectedCircles.remove(circle)
-                        } else {
-                            selectedCircles.insert(circle)
-                        }
-                    }) {
-                        Text(circle)
-                            .font(.custom("Avenir Next", size: 13))
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
-                            .frame(maxWidth: .infinity)
-                            .background(isSelected ? Color(red: 0.55, green: 0.6, blue: 0.7) : Color(red: 0.98, green: 0.95, blue: 0.85))
-                            .foregroundColor(isSelected ? .white : .black)
-                            .cornerRadius(14)
-                    }
-                }
-            }
-        }
-        .padding(18)
-        .background(Color(red: 0.98, green: 0.95, blue: 0.85))
-        .cornerRadius(22)
-    }
-
-    var friendsCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Text("Friends who are in")
-                    .font(.custom("Avenir Next", size: 16))
-                    .fontWeight(.bold)
-                Spacer()
-            }
+    var friendsSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("In now")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(.secondary)
 
             if friendsIn.isEmpty {
-                Text("No friends are in yet.")
-                    .font(.custom("Avenir Next", size: 14))
-                    .foregroundColor(.black.opacity(0.7))
-            } else {
-                ForEach(friendsIn) { friend in
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(friend.name)
-                                .font(.custom("Avenir Next", size: 15))
-                                .fontWeight(.bold)
-                            Text(friend.note)
-                                .font(.custom("Avenir Next", size: 13))
-                                .foregroundColor(.black.opacity(0.7))
-                        }
-                        Spacer()
-                        Text("Chat")
-                            .font(.custom("Avenir Next", size: 13))
-                            .fontWeight(.bold)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(Color(red: 0.55, green: 0.6, blue: 0.7))
-                            .foregroundColor(.white)
-                            .cornerRadius(12)
-                    }
+                Text("No one's in yet - be the first.")
+                    .font(.system(size: 14))
+                    .foregroundColor(.secondary)
                     .padding(.vertical, 6)
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(Array(friendsIn.enumerated()), id: \.element.id) { index, friend in
+                        StatusFriendRow(name: friend.name, subtitle: friend.note, showsMessageIcon: true)
+
+                        if index < friendsIn.count - 1 {
+                            Divider()
+                                .background(AppColors.separator)
+                        }
+                    }
                 }
             }
         }
-        .padding(18)
-        .background(Color(red: 0.98, green: 0.95, blue: 0.85))
-        .cornerRadius(22)
     }
 
-    func statusButton(title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(title)
-                .font(.custom("Avenir Next", size: 16))
-                .fontWeight(.bold)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
-                .background(isSelected ? Color(red: 0.55, green: 0.6, blue: 0.7) : Color(red: 0.98, green: 0.95, blue: 0.85))
-                .foregroundColor(isSelected ? .white : .black)
-                .cornerRadius(16)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.black.opacity(0.1), lineWidth: 1)
-                )
+    var audienceSelection: AudienceSelection {
+        get {
+            let storedCircles = audienceSelectionCircles
+                .split(separator: "|")
+                .map { String($0) }
+                .filter { !$0.isEmpty }
+            if audienceSelectionMode == "circles", !storedCircles.isEmpty {
+                return .circles(storedCircles)
+            }
+            if audienceSelectionMode == "circle", !legacyAudienceSelectionCircle.isEmpty {
+                return .circles([legacyAudienceSelectionCircle])
+            }
+            return .everyone
         }
-        .disabled(viewModel.isUpdatingAvailability)
+        nonmutating set {
+            switch newValue {
+            case .everyone:
+                audienceSelectionMode = "everyone"
+                audienceSelectionCircles = ""
+                legacyAudienceSelectionCircle = ""
+            case .circles(let names):
+                if names.isEmpty {
+                    audienceSelectionMode = "everyone"
+                    audienceSelectionCircles = ""
+                    legacyAudienceSelectionCircle = ""
+                } else {
+                    audienceSelectionMode = "circles"
+                    audienceSelectionCircles = names.joined(separator: "|")
+                    legacyAudienceSelectionCircle = ""
+                }
+            }
+
+            if pendingInUpdate {
+                pendingInUpdate = false
+                updateAvailabilityIn()
+            }
+        }
     }
 
-    var audienceSummary: String {
-        if audienceMode == "circles" {
-            let count = selectedCircles.count
-            return count == 0 ? "None" : "\(count) circle\(count == 1 ? "" : "s")"
-        }
-        return "Everyone"
+    var audienceSelectionBinding: Binding<AudienceSelection> {
+        Binding(get: { audienceSelection }, set: { newValue in
+            audienceSelection = newValue
+        })
     }
 
     func handleInTap() {
@@ -215,11 +176,11 @@ private extension HomeView {
         showAudienceSheet = true
     }
 
-    func handleAudienceConfirm() {
-        audienceCircles = encodeCircles(selectedCircles)
-        if pendingInUpdate {
-            pendingInUpdate = false
-            updateAvailabilityIn()
+    func handleOutTap() {
+        Task {
+            if let session = await sessionManager.validSession() {
+                await viewModel.updateAvailability(state: .out, session: session)
+            }
         }
     }
 
@@ -229,105 +190,10 @@ private extension HomeView {
             await viewModel.updateAvailability(state: .inOffice, session: session)
         }
     }
-
-    func encodeCircles(_ circles: Set<String>) -> String {
-        circles.sorted().joined(separator: "|")
-    }
-
-    func decodeCircles(from value: String, fallback: Set<String>) -> Set<String> {
-        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.isEmpty {
-            return fallback
-        }
-        return Set(trimmed.split(separator: "|").map { String($0) })
-    }
 }
 
 private struct FriendStatus: Identifiable {
     let id = UUID()
     let name: String
     let note: String
-}
-
-private struct AudienceSheet: View {
-    @Environment(\.dismiss) private var dismiss
-    let circles: [String]
-    @Binding var selectedCircles: Set<String>
-    @Binding var audienceMode: String
-    let onConfirm: () -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Who sees you in?")
-                .font(.custom("Avenir Next", size: 20))
-                .fontWeight(.bold)
-
-            Button(action: {
-                audienceMode = "everyone"
-            }) {
-                HStack {
-                    Text("Everyone")
-                        .font(.custom("Avenir Next", size: 16))
-                        .fontWeight(.bold)
-                    Spacer()
-                    if audienceMode == "everyone" {
-                        Image(systemName: "checkmark.circle.fill")
-                    }
-                }
-            }
-            .foregroundColor(.black)
-
-            Button(action: {
-                audienceMode = "circles"
-            }) {
-                HStack {
-                    Text("Choose circles")
-                        .font(.custom("Avenir Next", size: 16))
-                        .fontWeight(.bold)
-                    Spacer()
-                    if audienceMode == "circles" {
-                        Image(systemName: "checkmark.circle.fill")
-                    }
-                }
-            }
-            .foregroundColor(.black)
-
-            if audienceMode == "circles" {
-                VStack(alignment: .leading, spacing: 8) {
-                    ForEach(circles, id: \.self) { circle in
-                        Toggle(isOn: Binding(
-                            get: { selectedCircles.contains(circle) },
-                            set: { isOn in
-                                if isOn {
-                                    selectedCircles.insert(circle)
-                                } else {
-                                    selectedCircles.remove(circle)
-                                }
-                            }
-                        )) {
-                            Text(circle)
-                                .font(.custom("Avenir Next", size: 14))
-                        }
-                    }
-                }
-            }
-
-            Spacer()
-
-            Button(action: onConfirm) {
-                Text("Continue")
-                    .font(.custom("Avenir Next", size: 16))
-                    .fontWeight(.bold)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(Color(red: 0.55, green: 0.6, blue: 0.7))
-                    .foregroundColor(.white)
-                    .cornerRadius(14)
-            }
-            .simultaneousGesture(TapGesture().onEnded {
-                dismiss()
-            })
-        }
-        .padding(24)
-    }
 }

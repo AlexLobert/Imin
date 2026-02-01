@@ -14,7 +14,22 @@ final class ChatStore: ObservableObject {
         self.service = service
     }
 
+    var unreadTotal: Int {
+        threads.reduce(0) { total, thread in
+            total + max(thread.unreadCount, 0)
+        }
+    }
+
     func load(session: UserSession) async {
+        guard AppEnvironment.isChatBackendEnabled else {
+            isLoading = false
+            errorMessage = nil
+            inUsers = []
+            threads = []
+            messagesByThread = [:]
+            return
+        }
+
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
@@ -28,6 +43,7 @@ final class ChatStore: ObservableObject {
     }
 
     func openThread(for user: InUser, session: UserSession) async -> ChatThread? {
+        guard AppEnvironment.isChatBackendEnabled else { return nil }
         do {
             let thread = try await service.openOrCreateThread(with: user, session: session)
             await refreshThreads(session: session)
@@ -39,6 +55,7 @@ final class ChatStore: ObservableObject {
     }
 
     func loadMessages(for thread: ChatThread, session: UserSession) async {
+        guard AppEnvironment.isChatBackendEnabled else { return }
         do {
             let messages = try await service.fetchMessages(threadId: thread.id, session: session)
             messagesByThread[thread.id] = messages
@@ -48,6 +65,7 @@ final class ChatStore: ObservableObject {
     }
 
     func sendMessage(in thread: ChatThread, body: String, session: UserSession) async {
+        guard AppEnvironment.isChatBackendEnabled else { return }
         do {
             let message = try await service.sendMessage(threadId: thread.id, body: body, session: session)
             messagesByThread[thread.id, default: []].append(message)
@@ -62,6 +80,7 @@ final class ChatStore: ObservableObject {
     }
 
     private func refreshThreads(session: UserSession) async {
+        guard AppEnvironment.isChatBackendEnabled else { return }
         do {
             threads = try await service.fetchThreads(session: session)
         } catch {

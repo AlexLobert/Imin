@@ -7,66 +7,23 @@ struct CirclesView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                LinearGradient(
-                    colors: [Color(red: 0.7, green: 0.88, blue: 1.0), Color(red: 0.32, green: 0.52, blue: 0.9)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .ignoresSafeArea()
+                DesignColors.background
+                    .ignoresSafeArea()
 
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 18) {
-                        Text("Circles")
-                            .font(.custom("Avenir Next", size: 24))
-                            .fontWeight(.heavy)
+                VStack(spacing: 16) {
+                    header
 
-                        Text("Choose who you signal when you're in.")
-                            .font(.custom("Avenir Next", size: 14))
-                            .foregroundColor(.black.opacity(0.7))
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 16) {
+                            subtitle
 
-                        Button(action: { showCreateCircle = true }) {
-                            HStack {
-                                Text("Create a circle")
-                                    .font(.custom("Avenir Next", size: 16))
-                                    .fontWeight(.bold)
-                                Spacer()
-                                Text("+")
-                                    .font(.custom("Avenir Next", size: 20))
-                                    .fontWeight(.bold)
-                            }
-                            .padding(.vertical, 14)
-                            .padding(.horizontal, 16)
-                            .background(Color(red: 0.55, green: 0.6, blue: 0.7))
-                            .foregroundColor(.white)
-                            .cornerRadius(16)
+                            circlesList
                         }
-
-                        VStack(spacing: 12) {
-                            ForEach(viewModel.circles) { circle in
-                                NavigationLink(value: circle) {
-                                    HStack {
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            Text(circle.name)
-                                                .font(.custom("Avenir Next", size: 16))
-                                                .fontWeight(.bold)
-                                            Text("\(circle.members.count) friends")
-                                                .font(.custom("Avenir Next", size: 12))
-                                                .foregroundColor(.black.opacity(0.7))
-                                        }
-                                        Spacer()
-                                        Image(systemName: "chevron.right")
-                                            .foregroundColor(.black.opacity(0.5))
-                                    }
-                                    .padding(14)
-                                    .background(Color(red: 0.98, green: 0.95, blue: 0.85))
-                                    .cornerRadius(16)
-                                }
-                                .foregroundColor(.black)
-                            }
-                        }
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 24)
                     }
-                    .padding(24)
                 }
+                .padding(.top, 8)
             }
             .navigationTitle("")
             .navigationBarHidden(true)
@@ -79,6 +36,69 @@ struct CirclesView: View {
                     viewModel.createCircle(named: name)
                     showCreateCircle = false
                 }
+            }
+        }
+    }
+}
+
+private extension CirclesView {
+    var header: some View {
+        HStack {
+            Circle()
+                .fill(Color.clear)
+                .frame(width: 40, height: 40)
+
+            Spacer()
+
+            Text("Circles")
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundStyle(Color.black.opacity(0.85))
+
+            Spacer()
+
+            Button {
+                showCreateCircle = true
+            } label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 18, weight: .semibold))
+                    .frame(width: 44, height: 44)
+                    .background(Color.white.opacity(0.9))
+                    .clipShape(Circle())
+                    .shadow(color: Color.black.opacity(0.06), radius: 10, x: 0, y: 6)
+            }
+            .accessibilityLabel("Create a circle")
+        }
+        .padding(.horizontal, 20)
+    }
+
+    var subtitle: some View {
+        Text("Choose who you signal when you're in.")
+            .font(.system(size: 15, weight: .regular))
+            .foregroundStyle(Color.black.opacity(0.55))
+    }
+
+    var circlesList: some View {
+        VStack(spacing: 12) {
+            ForEach(viewModel.circles) { circle in
+                NavigationLink(value: circle) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(circle.name)
+                                .font(.system(size: 17, weight: .semibold))
+                                .foregroundStyle(Color.black.opacity(0.85))
+                            Text("\(circle.members.count) friends")
+                                .font(.system(size: 14, weight: .regular))
+                                .foregroundStyle(Color.black.opacity(0.55))
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(Color.black.opacity(0.35))
+                    }
+                    .padding(16)
+                }
+                .buttonStyle(.plain)
+                .imInCard()
             }
         }
     }
@@ -170,70 +190,71 @@ private struct CircleDetailView: View {
 
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [Color(red: 0.7, green: 0.88, blue: 1.0), Color(red: 0.32, green: 0.52, blue: 0.9)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
+            DesignColors.background
+                .ignoresSafeArea()
 
-            VStack(alignment: .leading, spacing: 16) {
-                if let circle = viewModel.circle(for: circleId) {
-                    Text(circle.name)
-                        .font(.custom("Avenir Next", size: 22))
-                        .fontWeight(.bold)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    if let circle = viewModel.circle(for: circleId) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(circle.name)
+                                .font(.system(size: 22, weight: .semibold))
+                                .foregroundColor(DesignColors.textPrimary)
 
-                    Text("\(circle.members.count) friends")
-                        .font(.custom("Avenir Next", size: 13))
-                        .foregroundColor(.black.opacity(0.7))
-
-                    HStack(spacing: 12) {
-                        Button("Add member") {
-                            showAddMember = true
+                            Text("\(circle.members.count) friends")
+                                .font(.system(size: 14))
+                                .foregroundColor(DesignColors.textSecondary)
                         }
-                        .buttonStyle(FilledCircleButtonStyle())
 
-                        Button("Rename") {
-                            showRename = true
-                        }
-                        .buttonStyle(OutlineCircleButtonStyle())
-                    }
-
-                    VStack(spacing: 10) {
-                        ForEach(circle.members) { member in
-                            HStack {
-                                Text(member.name)
-                                    .font(.custom("Avenir Next", size: 15))
-                                    .fontWeight(.bold)
-                                Spacer()
-                                Button(action: {
-                                    viewModel.removeMember(from: circleId, memberId: member.id)
-                                }) {
-                                    Image(systemName: "xmark")
-                                        .font(.system(size: 12, weight: .bold))
-                                        .padding(6)
-                                        .background(Color(red: 0.55, green: 0.6, blue: 0.7))
-                                        .foregroundColor(.white)
-                                        .cornerRadius(10)
-                                }
+                        HStack(spacing: 12) {
+                            Button("Add member") {
+                                showAddMember = true
                             }
-                            .padding(12)
-                            .background(Color(red: 0.98, green: 0.95, blue: 0.85))
-                            .cornerRadius(16)
+                            .buttonStyle(FilledPillButtonStyle())
+
+                            Button("Rename") {
+                                showRename = true
+                            }
+                            .buttonStyle(OutlinedPillButtonStyle())
                         }
-                    }
 
-                    Button("Delete circle") {
-                        showDelete = true
+                        VStack(spacing: 12) {
+                            ForEach(circle.members) { member in
+                                HStack {
+                                    Text(member.name)
+                                        .font(.system(size: 16, weight: .semibold))
+                                        .foregroundColor(DesignColors.textPrimary)
+                                    Spacer()
+                                    Button(action: {
+                                        viewModel.removeMember(from: circleId, memberId: member.id)
+                                    }) {
+                                        Image(systemName: "xmark")
+                                            .font(.system(size: 12, weight: .bold))
+                                            .frame(width: 28, height: 28)
+                                            .background(Color.black.opacity(0.08))
+                                            .foregroundColor(DesignColors.textSecondary)
+                                            .clipShape(Circle())
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                                .padding(.vertical, 14)
+                                .padding(.horizontal, 16)
+                                .background(DesignColors.card)
+                                .cornerRadius(22)
+                                .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 2)
+                            }
+                        }
+
+                        Button("Delete circle") {
+                            showDelete = true
+                        }
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(DesignColors.textSecondary)
+                        .padding(.top, 4)
                     }
-                    .font(.custom("Avenir Next", size: 14))
-                    .foregroundColor(.black.opacity(0.8))
-                    .padding(.top, 8)
                 }
-
-                Spacer()
+                .padding(20)
             }
-            .padding(24)
         }
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
@@ -242,7 +263,7 @@ private struct CircleDetailView: View {
                 Button("Done") {
                     dismiss()
                 }
-                .foregroundColor(.black)
+                .foregroundColor(DesignColors.textPrimary)
             }
         }
         .sheet(isPresented: $showAddMember) {
@@ -312,6 +333,34 @@ private struct CircleTextEntrySheet: View {
             .buttonStyle(FilledCircleButtonStyle())
         }
         .padding(24)
+    }
+}
+
+private struct FilledPillButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 14, weight: .semibold))
+            .padding(.vertical, 10)
+            .padding(.horizontal, 16)
+            .background(Color(.systemGray5).opacity(configuration.isPressed ? 0.7 : 1.0))
+            .foregroundColor(DesignColors.textPrimary)
+            .clipShape(Capsule())
+    }
+}
+
+private struct OutlinedPillButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 14, weight: .semibold))
+            .padding(.vertical, 10)
+            .padding(.horizontal, 16)
+            .background(DesignColors.card)
+            .foregroundColor(DesignColors.textPrimary)
+            .clipShape(Capsule())
+            .overlay(
+                Capsule()
+                    .stroke(Color.black.opacity(0.08), lineWidth: 1)
+            )
     }
 }
 
