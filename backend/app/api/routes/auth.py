@@ -17,7 +17,7 @@ from app.schemas.errors import ErrorResponse
 from app.services import auth_service
 
 
-router = APIRouter()
+router = APIRouter(tags=["Auth"])
 
 
 @router.post(

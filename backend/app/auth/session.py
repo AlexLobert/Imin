@@ -4,6 +4,7 @@ import secrets
 from sqlalchemy import select
 from sqlalchemy.orm import Session as OrmSession
 
+from app.config import settings
 from app.config.settings import SESSION_TTL_DAYS
 from app.models.session import Session as SessionModel
 from app.models.user import User
@@ -45,3 +46,8 @@ def get_user_for_session(db: OrmSession, session_id: str | None) -> User | None:
         db.commit()
         return None
     return db.scalar(select(User).where(User.user_id == session.user_id))
+
+
+def get_current_user(db: OrmSession, request) -> User | None:
+    session_id = request.cookies.get(settings.SESSION_COOKIE_NAME)
+    return get_user_for_session(db=db, session_id=session_id)

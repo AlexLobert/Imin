@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session as OrmSession
 from app.auth.password import hash_password, validate_password, verify_password
 from app.auth.session import create_session, delete_session
 from app.models.user import User
+from app.services.circles_service import ensure_everyone_circle
 
 
 def create_account(
@@ -29,6 +30,7 @@ def create_account(
     db.add(user)
     db.commit()
     db.refresh(user)
+    ensure_everyone_circle(db, user.user_id)
     return user, None
 
 
