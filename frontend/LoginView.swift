@@ -26,22 +26,12 @@ struct LoginView: View {
                         .font(.system(size: 22, weight: .semibold))
                         .foregroundColor(DesignColors.textPrimary)
 
-                    Text(viewModel.authFlow == .signUp
-                        ? "Create an account with a one-time code."
-                        : "Sign in with a one-time code.")
+                    Text("Enter your email and we'll send a one-time code.")
                         .font(.system(size: 15))
                         .foregroundColor(DesignColors.textSecondary)
                 }
 
                 VStack(spacing: 16) {
-                    Picker("", selection: $viewModel.authFlow) {
-                        ForEach(LoginViewModel.AuthFlow.allCases, id: \.self) { flow in
-                            Text(flow.rawValue)
-                                .tag(flow)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-
                     TextField("Email", text: $viewModel.email)
                         .textInputAutocapitalization(.never)
                         .keyboardType(.emailAddress)

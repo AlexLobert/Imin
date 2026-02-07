@@ -47,24 +47,33 @@ struct StatusCardView: View {
                 }
                 .buttonStyle(.plain)
 
-                Button(action: {
-                    UIImpactFeedbackGenerator(style: .soft).impactOccurred()
-                    onVisibleToTap()
-                }) {
-                    HStack(spacing: 6) {
-                        Text("Visible to \(visiblePillText)")
-                            .lineLimit(1)
+                if status == .in {
+                    Button(action: {
+                        UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+                        onVisibleToTap()
+                    }) {
+                        HStack(spacing: 6) {
+                            Text("Visible to \(visiblePillText)")
+                                .lineLimit(1)
 
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 12, weight: .semibold))
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 12, weight: .semibold))
+                        }
+                        .font(.system(size: 14, weight: .medium))
+                        .frame(width: controlMaxWidth)
+                        .foregroundColor(Color.white.opacity(0.78))
+                        .padding(.vertical, 4)
+                        .shadow(color: Color.black.opacity(0.18), radius: 8, x: 0, y: 6)
                     }
-                    .font(.system(size: 14, weight: .medium))
-                    .frame(width: controlMaxWidth)
-                    .foregroundColor(Color.white.opacity(0.78))
-                    .padding(.vertical, 4)
-                    .shadow(color: Color.black.opacity(0.18), radius: 8, x: 0, y: 6)
+                    .buttonStyle(.plain)
+                } else {
+                    Text("Click to go in")
+                        .font(.system(size: 14, weight: .medium))
+                        .frame(width: controlMaxWidth)
+                        .foregroundColor(Color.white.opacity(0.78))
+                        .padding(.vertical, 4)
+                        .shadow(color: Color.black.opacity(0.18), radius: 8, x: 0, y: 6)
                 }
-                .buttonStyle(.plain)
             }
             .frame(maxWidth: .infinity)
             .padding(.horizontal, 16)

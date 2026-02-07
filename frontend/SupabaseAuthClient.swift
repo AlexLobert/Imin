@@ -185,7 +185,23 @@ struct SupabaseAuthClient: AuthClient {
 
     private func decodeErrorMessage(from data: Data) -> String {
         if let error = try? JSONDecoder().decode(SupabaseErrorResponse.self, from: data) {
-            return error.errorDescription ?? error.message ?? "Unknown error"
+            let candidates = [
+                error.errorDescription,
+                error.message,
+                error.msg,
+                error.error
+            ]
+            if let message = candidates
+                .compactMap({ $0?.trimmingCharacters(in: .whitespacesAndNewlines) })
+                .first(where: { !$0.isEmpty }) {
+                return message
+            }
+        }
+
+        if let fallback = String(data: data, encoding: .utf8)?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+           !fallback.isEmpty {
+            return fallback
         }
 
         return "Unknown error"
@@ -237,15 +253,28 @@ private struct SupabaseUser: Decodable {
 
 private struct SupabaseErrorResponse: Decodable {
     let message: String?
+    let msg: String?
+    let error: String?
     let errorDescription: String?
 
     enum CodingKeys: String, CodingKey {
-        case message = "msg"
+        case message
+        case msg
+        case error
         case errorDescription = "error_description"
     }
 }
 
-enum SupabaseAuthError: Error {
+enum SupabaseAuthError: Error, LocalizedError {
     case invalidResponse
     case requestFailed(message: String)
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidResponse:
+            return "Invalid response from authentication service."
+        case .requestFailed(let message):
+            return message
+        }
+    }
 }

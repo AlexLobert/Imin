@@ -49,7 +49,9 @@ struct HomeView: View {
                             .foregroundColor(.secondary)
                     }
 
-                    audienceSection
+                    if viewModel.availabilityState == .inOffice {
+                        audienceSection
+                    }
 
                     friendsSection
 
