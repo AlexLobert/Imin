@@ -37,6 +37,7 @@ struct IminApp: App {
                 .environmentObject(safetyStore)
                 .environmentObject(statusStore)
                 .environmentObject(privacyStore)
+                .preferredColorScheme(.light)
         }
     }
 }
