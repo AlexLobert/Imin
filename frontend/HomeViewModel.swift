@@ -44,7 +44,12 @@ final class HomeViewModel: ObservableObject {
         }
     }
 
-    func updateAvailability(state: AvailabilityState, session: UserSession) async {
+    func updateAvailability(
+        state: AvailabilityState,
+        visibilityMode: AvailabilityVisibilityMode,
+        visibilityCircleIds: [UUID],
+        session: UserSession
+    ) async {
         isUpdatingAvailability = true
         errorMessage = nil
         let previousState = availabilityState
@@ -59,6 +64,8 @@ final class HomeViewModel: ObservableObject {
             let availability = try await availabilityService.upsertAvailability(
                 state: state,
                 expiresAt: expiresAt,
+                visibilityMode: visibilityMode,
+                visibilityCircleIds: visibilityCircleIds,
                 session: session
             )
             availabilityState = availability.state

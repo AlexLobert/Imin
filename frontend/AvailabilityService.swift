@@ -22,7 +22,13 @@ struct AvailabilityService {
         return try await fetchAvailabilityFromSupabase(session: session)
     }
 
-    func upsertAvailability(state: AvailabilityState, expiresAt: Date?, session: UserSession) async throws -> Availability {
+    func upsertAvailability(
+        state: AvailabilityState,
+        expiresAt: Date?,
+        visibilityMode: AvailabilityVisibilityMode = .everyone,
+        visibilityCircleIds: [UUID] = [],
+        session: UserSession
+    ) async throws -> Availability {
         if let apiBaseURL = apiBaseURL {
             return try await upsertAvailabilityToBackend(
                 baseURL: apiBaseURL,
@@ -34,6 +40,8 @@ struct AvailabilityService {
         return try await upsertAvailabilityToSupabase(
             state: state,
             expiresAt: expiresAt,
+            visibilityMode: visibilityMode,
+            visibilityCircleIds: visibilityCircleIds,
             session: session
         )
     }
@@ -56,7 +64,13 @@ struct AvailabilityService {
             throw AvailabilityServiceError.invalidBackendStatus
         }
 
-        return Availability(userId: session.userId, state: state, expiresAt: nil)
+        return Availability(
+            userId: session.userId,
+            state: state,
+            expiresAt: nil,
+            visibilityMode: nil,
+            visibilityCircleIds: nil
+        )
     }
 
     private func upsertAvailabilityToBackend(
@@ -86,7 +100,13 @@ struct AvailabilityService {
             throw AvailabilityServiceError.invalidBackendStatus
         }
 
-        return Availability(userId: session.userId, state: updatedState, expiresAt: expiresAt)
+        return Availability(
+            userId: session.userId,
+            state: updatedState,
+            expiresAt: expiresAt,
+            visibilityMode: nil,
+            visibilityCircleIds: nil
+        )
     }
 
     private func fetchAvailabilityFromSupabase(session: UserSession) async throws -> Availability? {
@@ -115,7 +135,13 @@ struct AvailabilityService {
         return entries.first
     }
 
-    private func upsertAvailabilityToSupabase(state: AvailabilityState, expiresAt: Date?, session: UserSession) async throws -> Availability {
+    private func upsertAvailabilityToSupabase(
+        state: AvailabilityState,
+        expiresAt: Date?,
+        visibilityMode: AvailabilityVisibilityMode,
+        visibilityCircleIds: [UUID],
+        session: UserSession
+    ) async throws -> Availability {
         var components = URLComponents(url: config.url.appendingPathComponent("/rest/v1/availability"), resolvingAgainstBaseURL: false)
         components?.queryItems = [
             URLQueryItem(name: "on_conflict", value: "user_id")
@@ -136,7 +162,13 @@ struct AvailabilityService {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("return=representation, resolution=merge-duplicates", forHTTPHeaderField: "Prefer")
 
-        let payload = AvailabilityPayload(userId: session.userId, state: state, expiresAt: expiresAt)
+        let payload = AvailabilityPayload(
+            userId: session.userId,
+            state: state,
+            expiresAt: expiresAt,
+            visibilityMode: visibilityMode,
+            visibilityCircleIds: visibilityCircleIds
+        )
         request.httpBody = try makeEncoder().encode([payload])
 
         let data = try await data(for: request)
@@ -180,7 +212,7 @@ struct AvailabilityService {
 
     private func makeDecoder() -> JSONDecoder {
         let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
+        decoder.dateDecodingStrategy = .custom(DateCoders.decodeISO8601)
         return decoder
     }
 
@@ -205,11 +237,15 @@ private struct AvailabilityPayload: Encodable {
     let userId: String
     let state: AvailabilityState
     let expiresAt: Date?
+    let visibilityMode: AvailabilityVisibilityMode
+    let visibilityCircleIds: [UUID]
 
     enum CodingKeys: String, CodingKey {
         case userId = "user_id"
         case state
         case expiresAt = "expires_at"
+        case visibilityMode = "visibility_mode"
+        case visibilityCircleIds = "visibility_circle_ids"
     }
 }
 

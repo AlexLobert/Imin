@@ -5,7 +5,7 @@ struct ImInCardStyle: ViewModifier {
         content
             .background(Color.white.opacity(0.95))
             .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-            .shadow(color: Color.black.opacity(0.06), radius: 12, x: 0, y: 6)
+            .shadow(color: Color.black.opacity(0.05), radius: 20, x: 0, y: 4)
     }
 }
 

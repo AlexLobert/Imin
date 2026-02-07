@@ -19,7 +19,11 @@ struct ChatThreadView: View {
             VStack(spacing: 12) {
                 ScrollView {
                     VStack(spacing: 12) {
-                        ForEach(chatStore.messages(for: thread)) { message in
+                        let messages = chatStore.messages(for: thread)
+                        ForEach(Array(messages.enumerated()), id: \.element.id) { index, message in
+                            if shouldShowTimestamp(current: message, previous: index > 0 ? messages[index - 1] : nil) {
+                                timestampView(message.createdAt)
+                            }
                             messageRow(message)
                         }
                     }
@@ -53,6 +57,46 @@ struct ChatThreadView: View {
             if !isMine { Spacer() }
         }
     }
+
+    private func timestampView(_ date: Date) -> some View {
+        Text(timestampText(for: date))
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundColor(DesignColors.textSecondary.opacity(0.7))
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 6)
+    }
+
+    private func shouldShowTimestamp(current: ChatMessage, previous: ChatMessage?) -> Bool {
+        guard let previous else { return true }
+        let calendar = Calendar.current
+        if !calendar.isDate(current.createdAt, inSameDayAs: previous.createdAt) {
+            return true
+        }
+        return current.createdAt.timeIntervalSince(previous.createdAt) > 3600
+    }
+
+    private func timestampText(for date: Date) -> String {
+        let calendar = Calendar.current
+        if calendar.isDateInToday(date) {
+            return "Today \(Self.timeFormatter.string(from: date))"
+        }
+        if calendar.isDateInYesterday(date) {
+            return "Yesterday \(Self.timeFormatter.string(from: date))"
+        }
+        return Self.dateFormatter.string(from: date)
+    }
+
+    private static let timeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "h:mm a"
+        return formatter
+    }()
+
+    private static let dateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d, h:mm a"
+        return formatter
+    }()
 
     private var messageComposer: some View {
         HStack(spacing: 8) {

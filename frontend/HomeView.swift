@@ -2,15 +2,16 @@ import SwiftUI
 
 struct HomeView: View {
     @EnvironmentObject private var sessionManager: SessionManager
+    @EnvironmentObject private var circleStore: CircleStore
     @StateObject private var viewModel = HomeViewModel()
     @State private var showAudienceSheet = false
     @State private var showProfileSheet = false
     @State private var pendingInUpdate = false
     @AppStorage("audienceSelectionMode") private var audienceSelectionMode = "everyone"
     @AppStorage("audienceSelectionCircles") private var audienceSelectionCircles = ""
+    @AppStorage("audienceSelectionCircleIds") private var audienceSelectionCircleIds = ""
     @AppStorage("audienceSelectionCircle") private var legacyAudienceSelectionCircle = ""
 
-    private let circles = ["Inner circle", "Roommates", "Late-night crew", "Gym buddies"]
     private let friendsIn: [FriendStatus] = []
 
     var body: some View {
@@ -63,14 +64,34 @@ struct HomeView: View {
         }
         .task(id: sessionManager.session?.userId) {
             await loadAvailability()
+            if let session = await sessionManager.validSession() {
+                await circleStore.load(session: session)
+                normalizeAudienceSelection(using: circleStore.circles)
+            }
         }
         .sheet(isPresented: $showAudienceSheet) {
-            AudiencePickerSheet(circles: circles, selection: audienceSelectionBinding)
+            AudiencePickerSheet(circles: circleStore.circles, selection: audienceSelectionBinding)
                 .presentationDetents([.medium])
         }
         .sheet(isPresented: $showProfileSheet) {
             ProfileView()
                 .environmentObject(sessionManager)
+        }
+        .onChange(of: circleStore.circles) { _, _ in
+            normalizeAudienceSelection(using: circleStore.circles)
+        }
+        .onChange(of: audienceSelection) { _, _ in
+            guard viewModel.availabilityState == .inOffice else { return }
+            Task {
+                guard let session = await sessionManager.validSession() else { return }
+                let visibility = availabilityVisibility
+                await viewModel.updateAvailability(
+                    state: .inOffice,
+                    visibilityMode: visibility.mode,
+                    visibilityCircleIds: visibility.circleIds,
+                    session: session
+                )
+            }
         }
     }
 
@@ -87,7 +108,7 @@ private extension HomeView {
             Button(action: {
                 showAudienceSheet = true
             }) {
-                ListRow(title: "Visible to", value: audienceSelection.label, showsDivider: false)
+                ListRow(title: "Visible to", value: audienceSelection.label(using: circleStore.circles), showsDivider: false)
             }
             .buttonStyle(.plain)
 
@@ -124,15 +145,21 @@ private extension HomeView {
 
     var audienceSelection: AudienceSelection {
         get {
-            let storedCircles = audienceSelectionCircles
-                .split(separator: "|")
-                .map { String($0) }
-                .filter { !$0.isEmpty }
-            if audienceSelectionMode == "circles", !storedCircles.isEmpty {
-                return .circles(storedCircles)
+            let storedIds = decodeCircleIds(audienceSelectionCircleIds)
+            if audienceSelectionMode == "circles", !storedIds.isEmpty {
+                return .circles(storedIds)
+            }
+            if audienceSelectionMode == "circles" {
+                let legacy = legacyCircleIds(using: circleStore.circles)
+                if !legacy.isEmpty {
+                    return .circles(legacy)
+                }
             }
             if audienceSelectionMode == "circle", !legacyAudienceSelectionCircle.isEmpty {
-                return .circles([legacyAudienceSelectionCircle])
+                let legacy = legacyCircleIds(using: circleStore.circles)
+                if !legacy.isEmpty {
+                    return .circles(legacy)
+                }
             }
             return .everyone
         }
@@ -141,15 +168,18 @@ private extension HomeView {
             case .everyone:
                 audienceSelectionMode = "everyone"
                 audienceSelectionCircles = ""
+                audienceSelectionCircleIds = ""
                 legacyAudienceSelectionCircle = ""
-            case .circles(let names):
-                if names.isEmpty {
+            case .circles(let ids):
+                if ids.isEmpty {
                     audienceSelectionMode = "everyone"
                     audienceSelectionCircles = ""
+                    audienceSelectionCircleIds = ""
                     legacyAudienceSelectionCircle = ""
                 } else {
                     audienceSelectionMode = "circles"
-                    audienceSelectionCircles = names.joined(separator: "|")
+                    audienceSelectionCircles = ""
+                    audienceSelectionCircleIds = encodeCircleIds(ids)
                     legacyAudienceSelectionCircle = ""
                 }
             }
@@ -179,7 +209,13 @@ private extension HomeView {
     func handleOutTap() {
         Task {
             if let session = await sessionManager.validSession() {
-                await viewModel.updateAvailability(state: .out, session: session)
+                let visibility = availabilityVisibility
+                await viewModel.updateAvailability(
+                    state: .out,
+                    visibilityMode: visibility.mode,
+                    visibilityCircleIds: visibility.circleIds,
+                    session: session
+                )
             }
         }
     }
@@ -187,8 +223,60 @@ private extension HomeView {
     func updateAvailabilityIn() {
         Task {
             guard let session = await sessionManager.validSession() else { return }
-            await viewModel.updateAvailability(state: .inOffice, session: session)
+            let visibility = availabilityVisibility
+            await viewModel.updateAvailability(
+                state: .inOffice,
+                visibilityMode: visibility.mode,
+                visibilityCircleIds: visibility.circleIds,
+                session: session
+            )
         }
+    }
+}
+
+private extension HomeView {
+    var availabilityVisibility: (mode: AvailabilityVisibilityMode, circleIds: [UUID]) {
+        switch audienceSelection {
+        case .everyone:
+            return (.everyone, [])
+        case .circles(let ids):
+            return (.circles, ids)
+        }
+    }
+
+    func normalizeAudienceSelection(using circles: [CircleGroup]) {
+        guard case .circles = audienceSelection else { return }
+        let allowed = Set(circles.map(\.id))
+        var resolved = decodeCircleIds(audienceSelectionCircleIds)
+        if resolved.isEmpty {
+            resolved = legacyCircleIds(using: circles)
+        }
+        let filtered = resolved.filter { allowed.contains($0) }
+        if filtered.isEmpty {
+            audienceSelection = .everyone
+        } else if filtered != resolved {
+            audienceSelection = .circles(filtered)
+        }
+    }
+
+    func decodeCircleIds(_ raw: String) -> [UUID] {
+        raw.split(separator: "|")
+            .compactMap { UUID(uuidString: String($0)) }
+    }
+
+    func encodeCircleIds(_ ids: [UUID]) -> String {
+        ids.map(\.uuidString).joined(separator: "|")
+    }
+
+    func legacyCircleIds(using circles: [CircleGroup]) -> [UUID] {
+        let legacyNames = audienceSelectionCircles
+            .split(separator: "|")
+            .map { String($0) }
+            .filter { !$0.isEmpty }
+        let legacySingle = legacyAudienceSelectionCircle.isEmpty ? [] : [legacyAudienceSelectionCircle]
+        let names = Set((legacyNames + legacySingle).map { $0.lowercased() })
+        guard !names.isEmpty else { return [] }
+        return circles.filter { names.contains($0.name.lowercased()) }.map(\.id)
     }
 }
 

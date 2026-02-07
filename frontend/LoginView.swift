@@ -7,8 +7,14 @@ struct LoginView: View {
 
     var body: some View {
         ZStack {
+            DesignColors.background
+                .ignoresSafeArea()
+
             LinearGradient(
-                colors: [Color(red: 0.7, green: 0.88, blue: 1.0), Color(red: 0.32, green: 0.52, blue: 0.9)],
+                colors: [
+                    Color(red: 0.66, green: 0.9, blue: 0.81).opacity(0.25),
+                    Color.clear
+                ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
@@ -17,75 +23,90 @@ struct LoginView: View {
             VStack(spacing: 24) {
                 VStack(spacing: 10) {
                     Text("Let's sync up")
-                        .font(.custom("Avenir Next", size: 28))
-                        .fontWeight(.heavy)
-                        .foregroundColor(.black)
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundColor(DesignColors.textPrimary)
 
-                    Text("Sign in to see who's down right now.")
-                        .font(.custom("Avenir Next", size: 16))
-                        .foregroundColor(.black.opacity(0.75))
+                    Text(viewModel.authFlow == .signUp
+                        ? "Create an account with a one-time code."
+                        : "Sign in with a one-time code.")
+                        .font(.system(size: 15))
+                        .foregroundColor(DesignColors.textSecondary)
                 }
 
                 VStack(spacing: 16) {
+                    Picker("", selection: $viewModel.authFlow) {
+                        ForEach(LoginViewModel.AuthFlow.allCases, id: \.self) { flow in
+                            Text(flow.rawValue)
+                                .tag(flow)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+
                     TextField("Email", text: $viewModel.email)
                         .textInputAutocapitalization(.never)
                         .keyboardType(.emailAddress)
-                        .textFieldStyle(.roundedBorder)
+                        .padding(14)
+                        .background(Color(.systemBackground))
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
 
-                    Button("Send code") {
-                        Task {
-                            await viewModel.sendOtp(using: sessionManager)
-                        }
-                    }
-                    .disabled(!viewModel.canSendCode || sessionManager.isLoading)
-                    .buttonStyle(PrimaryButtonStyle())
-
-                    if viewModel.isAwaitingToken {
-                        TextField("Code", text: $viewModel.token)
-                            .textInputAutocapitalization(.never)
-                            .keyboardType(.numberPad)
-                            .textFieldStyle(.roundedBorder)
-
-                        Button("Verify") {
+                    if AppEnvironment.backend == .supabase {
+                        Button("Send code") {
                             Task {
-                                await viewModel.verifyOtp(using: sessionManager)
+                                await viewModel.sendOtp(using: sessionManager)
                             }
                         }
-                        .disabled(!viewModel.canVerify || sessionManager.isLoading)
-                        .buttonStyle(PrimaryButtonStyle())
+                        .disabled(!viewModel.canSendCode || sessionManager.isLoading)
+                        .buttonStyle(AppPillButtonStyle(kind: .mint))
+
+                        if viewModel.isAwaitingToken {
+                            TextField("Code", text: $viewModel.token)
+                                .textInputAutocapitalization(.never)
+                                .keyboardType(.numberPad)
+                                .padding(14)
+                                .background(Color(.systemBackground))
+                                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+
+                            Button("Verify") {
+                                Task {
+                                    await viewModel.verifyOtp(using: sessionManager)
+                                }
+                            }
+                            .disabled(!viewModel.canVerify || sessionManager.isLoading)
+                            .buttonStyle(AppPillButtonStyle(kind: .mint))
+                        }
+                    } else {
+                        SecureField("Password", text: $viewModel.password)
+                            .textInputAutocapitalization(.never)
+                            .padding(14)
+                            .background(Color(.systemBackground))
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+
+                        Button("Sign in") {
+                            Task {
+                                await viewModel.login(using: sessionManager)
+                            }
+                        }
+                        .disabled(!viewModel.canLogin || sessionManager.isLoading)
+                        .buttonStyle(AppPillButtonStyle(kind: .mint))
                     }
                 }
                 .padding(20)
-                .background(Color(red: 0.98, green: 0.95, blue: 0.85))
-                .cornerRadius(24)
+                .appCard()
 
                 if sessionManager.isLoading {
                     ProgressView()
-                        .tint(.black)
+                        .tint(DesignColors.textPrimary)
                 }
 
                 if let errorMessage = sessionManager.errorMessage {
                     Text(errorMessage)
-                        .foregroundColor(.black)
-                        .font(.custom("Avenir Next", size: 14))
+                        .foregroundColor(DesignColors.textSecondary)
+                        .font(.system(size: 13, weight: .medium))
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 20)
                 }
             }
             .padding(24)
         }
-    }
-}
-
-private struct PrimaryButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.custom("Avenir Next", size: 16))
-            .fontWeight(.bold)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
-            .background(Color(red: 0.55, green: 0.6, blue: 0.7).opacity(configuration.isPressed ? 0.7 : 1.0))
-            .foregroundColor(.white)
-            .cornerRadius(14)
     }
 }

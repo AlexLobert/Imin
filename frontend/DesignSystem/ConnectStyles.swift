@@ -43,12 +43,12 @@ struct FilterPillStyle: ButtonStyle {
             .padding(.horizontal, 10)
             .background(
                 Capsule()
-                    .fill(isSelected ? ConnectColors.cardBackground : Color.clear)
+                    .fill(isSelected ? Color.white : Color.clear)
             )
             .overlay(
                 Capsule()
-                    .stroke(isSelected ? ConnectColors.chipBorder : Color.clear, lineWidth: 1)
+                    .stroke(isSelected ? AppStyle.mint.opacity(0.35) : Color.clear, lineWidth: 1)
             )
-            .foregroundColor(isSelected ? ConnectColors.textPrimary : ConnectColors.textSecondary)
+            .foregroundColor(isSelected ? AppStyle.mint : ConnectColors.textSecondary)
     }
 }

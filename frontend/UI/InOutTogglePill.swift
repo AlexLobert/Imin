@@ -49,7 +49,7 @@ struct InOutSlider: View {
                 Circle()
                     .fill(Color.white)
                     .frame(width: knobSize, height: knobSize)
-                    .shadow(color: Color.black.opacity(0.15), radius: 8, x: 0, y: 2)
+                    .shadow(color: Color.black.opacity(0.05), radius: 20, x: 0, y: 4)
                     .offset(x: knobOffset)
             }
             .frame(height: height)

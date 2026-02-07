@@ -10,8 +10,17 @@ final class ChatStore: ObservableObject {
 
     private let service: ChatServiceProtocol
 
-    init(service: ChatServiceProtocol = SupabaseChatService()) {
+    init(service: ChatServiceProtocol = ChatStore.defaultService()) {
         self.service = service
+    }
+
+    nonisolated private static func defaultService() -> ChatServiceProtocol {
+        switch AppEnvironment.backend {
+        case .supabase:
+            return SupabaseChatService()
+        case .kris:
+            return InMemoryChatService()
+        }
     }
 
     var unreadTotal: Int {
@@ -72,6 +81,18 @@ final class ChatStore: ObservableObject {
             await refreshThreads(session: session)
         } catch {
             errorMessage = error.localizedDescription
+        }
+    }
+
+    func deleteThread(_ thread: ChatThread, session: UserSession) async {
+        guard AppEnvironment.isChatBackendEnabled else { return }
+        do {
+            try await service.deleteThread(threadId: thread.id, session: session)
+            threads.removeAll { $0.id == thread.id }
+            messagesByThread[thread.id] = nil
+        } catch {
+            errorMessage = error.localizedDescription
+            await refreshThreads(session: session)
         }
     }
 

@@ -41,7 +41,7 @@ private struct FilterPillButtonStyle: ButtonStyle {
             )
             .overlay(
                 Capsule()
-                    .stroke(isSelected ? Color.black.opacity(0.08) : Color.clear, lineWidth: 1)
+                    .stroke(isSelected ? AppStyle.mint.opacity(0.35) : Color.clear, lineWidth: 1)
             )
             .foregroundColor(isSelected ? DesignColors.textPrimary : DesignColors.textSecondary)
     }

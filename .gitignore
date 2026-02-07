@@ -2,3 +2,8 @@
 backend/.venv/
 backend/app.db
 backend/**/__pycache__/
+
+# Xcode user-specific files
+*.xcuserstate
+**/xcuserdata/
+**/*.xcuserdatad/

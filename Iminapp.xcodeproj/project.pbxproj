@@ -48,6 +48,8 @@
 		456A92ED2F21BCB2004D7D82 /* Iminapp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Iminapp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		456A92FA2F21BCB4004D7D82 /* IminappTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IminappTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		456A93042F21BCB4004D7D82 /* IminappUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IminappUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		45C0A1F92F9A5E0D0068A0B4 /* Supabase.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Supabase.xcconfig; path = frontend/Config/Supabase.xcconfig; sourceTree = "<group>"; };
+		45C0A1FA2F9A5E0D0068A0B4 /* KrisBackend.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = KrisBackend.xcconfig; path = frontend/Config/KrisBackend.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -133,6 +135,8 @@
 		456A92E42F21BCB2004D7D82 = {
 			isa = PBXGroup;
 			children = (
+				45C0A1F92F9A5E0D0068A0B4 /* Supabase.xcconfig */,
+				45C0A1FA2F9A5E0D0068A0B4 /* KrisBackend.xcconfig */,
 				456A92FD2F21BCB4004D7D82 /* IminappTests */,
 				456A93072F21BCB4004D7D82 /* IminappUITests */,
 				4526ACC12F25354A003A27F1 /* frontend */,
@@ -489,6 +493,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSContactsUsageDescription = "Imin uses your contacts to help you find friends already on the app.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -516,6 +521,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSContactsUsageDescription = "Imin uses your contacts to help you find friends already on the app.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -723,6 +729,7 @@
 		};
 		456A930F2F21BCB4004D7D82 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 45C0A1F92F9A5E0D0068A0B4 /* Supabase.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -730,6 +737,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSContactsUsageDescription = "Imin uses your contacts to help you find friends already on the app.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -750,6 +758,7 @@
 		};
 		456A93102F21BCB4004D7D82 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 45C0A1F92F9A5E0D0068A0B4 /* Supabase.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -757,6 +766,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSContactsUsageDescription = "Imin uses your contacts to help you find friends already on the app.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

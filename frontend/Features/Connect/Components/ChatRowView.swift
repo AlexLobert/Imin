@@ -31,8 +31,8 @@ struct ChatRowView: View {
                     Spacer()
 
                     Text(TimeFormatter.shared.string(from: thread.updatedAt))
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(ConnectColors.textSecondary)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(ConnectColors.textSecondary.opacity(0.7))
                 }
 
                 HStack {
@@ -66,14 +66,14 @@ private struct ChatAvatarView: View {
     var body: some View {
         ZStack {
             if participants.count > 1 {
-                CollageAvatarView(participants: participants)
+                CollageAvatarView(participants: participants, gradientKey: title)
             } else if isGroup {
-                GroupAvatarView()
+                GroupAvatarView(gradientKey: title)
             } else {
                 SingleAvatarView(title: title, user: participants.first)
             }
         }
-        .frame(width: 48, height: 48)
+        .frame(width: 52, height: 52)
     }
 }
 
@@ -83,7 +83,11 @@ private struct SingleAvatarView: View {
 
     var body: some View {
         Circle()
-            .fill(ConnectColors.cardBackground)
+            .fill(AvatarGradient.gradient(for: title))
+            .overlay(
+                Circle()
+                    .stroke(Color.white.opacity(0.9), lineWidth: 2)
+            )
             .overlay(
                 Circle()
                     .stroke(ConnectColors.chipBorder, lineWidth: 1)
@@ -96,8 +100,9 @@ private struct SingleAvatarView: View {
                             .foregroundColor(ConnectColors.textSecondary)
                     } else {
                         Text(initials(from: title))
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(ConnectColors.textSecondary)
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(ConnectColors.textPrimary)
+                            .shadow(color: Color.black.opacity(0.08), radius: 1, x: 0, y: 1)
                     }
                 }
             )
@@ -113,11 +118,16 @@ private struct SingleAvatarView: View {
 
 private struct CollageAvatarView: View {
     let participants: [UserPreview]
+    let gradientKey: String
 
     var body: some View {
         ZStack {
             Circle()
-                .fill(ConnectColors.cardBackground)
+                .fill(AvatarGradient.gradient(for: gradientKey))
+                .overlay(
+                    Circle()
+                        .stroke(Color.white.opacity(0.9), lineWidth: 2)
+                )
                 .overlay(
                     Circle()
                         .stroke(ConnectColors.chipBorder, lineWidth: 1)
@@ -143,7 +153,7 @@ private struct CollageCircle: View {
 
     var body: some View {
         Circle()
-            .fill(ConnectColors.background)
+            .fill(Color.white.opacity(0.85))
             .frame(width: 14, height: 14)
             .overlay(
                 Group {
@@ -154,7 +164,7 @@ private struct CollageCircle: View {
                     } else if let name = user?.name {
                         Text(initials(from: name))
                             .font(.system(size: 7, weight: .bold))
-                            .foregroundColor(ConnectColors.textSecondary)
+                            .foregroundColor(ConnectColors.textPrimary)
                     }
                 }
             )
@@ -169,9 +179,15 @@ private struct CollageCircle: View {
 }
 
 private struct GroupAvatarView: View {
+    let gradientKey: String
+
     var body: some View {
         Circle()
-            .fill(ConnectColors.cardBackground)
+            .fill(AvatarGradient.gradient(for: gradientKey))
+            .overlay(
+                Circle()
+                    .stroke(Color.white.opacity(0.9), lineWidth: 2)
+            )
             .overlay(
                 Circle()
                     .stroke(ConnectColors.chipBorder, lineWidth: 1)
@@ -179,7 +195,7 @@ private struct GroupAvatarView: View {
             .overlay(
                 Image(systemName: "person.2.fill")
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(ConnectColors.textSecondary)
+                    .foregroundColor(ConnectColors.textPrimary)
             )
     }
 }

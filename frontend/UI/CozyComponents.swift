@@ -12,7 +12,7 @@ struct CozyCard<Content: View>: View {
             .padding(18)
             .background(CozyColor.cream)
             .cornerRadius(24)
-            .shadow(color: Color.black.opacity(0.08), radius: 18, x: 0, y: 8)
+            .shadow(color: Color.black.opacity(0.05), radius: 20, x: 0, y: 4)
             .overlay(
                 RoundedRectangle(cornerRadius: 24)
                     .stroke(Color.black.opacity(0.08), lineWidth: 1)

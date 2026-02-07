@@ -6,6 +6,7 @@ protocol ChatServiceProtocol {
     func fetchMessages(threadId: String, session: UserSession) async throws -> [ChatMessage]
     func openOrCreateThread(with user: InUser, session: UserSession) async throws -> ChatThread
     func sendMessage(threadId: String, body: String, session: UserSession) async throws -> ChatMessage
+    func deleteThread(threadId: String, session: UserSession) async throws
 }
 
 actor InMemoryChatService: ChatServiceProtocol {
@@ -93,5 +94,10 @@ actor InMemoryChatService: ChatServiceProtocol {
         }
 
         return message
+    }
+
+    func deleteThread(threadId: String, session: UserSession) async throws {
+        threads.removeAll { $0.id == threadId }
+        messagesByThread[threadId] = nil
     }
 }

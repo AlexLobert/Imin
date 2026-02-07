@@ -1,12 +1,35 @@
 import Foundation
 
+enum AuthMode {
+    case otp
+    case password
+}
+
 protocol AuthClient {
-    func sendOtp(email: String) async throws
+    var authMode: AuthMode { get }
+    var supportsRefresh: Bool { get }
+
+    func sendOtp(email: String, createUser: Bool) async throws
     func verifyOtp(email: String, token: String) async throws -> UserSession
+    func login(email: String, password: String) async throws -> UserSession
     func refreshSession(refreshToken: String) async throws -> UserSession
     func signOut(session: UserSession) async throws
     func updateEmail(newEmail: String, session: UserSession) async throws
     func deleteAccount(session: UserSession) async throws
+}
+
+enum AuthClientError: Error, LocalizedError {
+    case unsupported
+    case invalidResponse
+
+    var errorDescription: String? {
+        switch self {
+        case .unsupported:
+            return "This authentication method is not supported."
+        case .invalidResponse:
+            return "Invalid authentication response."
+        }
+    }
 }
 
 struct SupabaseConfig {
@@ -14,8 +37,8 @@ struct SupabaseConfig {
     let anonKey: String
 
     static let `default` = SupabaseConfig(
-        url: URL(string: "https://mcgviepzewadfnsmknqr.supabase.co")!,
-        anonKey: "sb_publishable_O_d8pmWaw4Ju_Ax42t9VXw_AIDiBT-K"
+        url: AppEnvironment.supabaseURL ?? URL(string: "https://mcgviepzewadfnsmknqr.supabase.co")!,
+        anonKey: AppEnvironment.supabaseAnonKey ?? "sb_publishable_O_d8pmWaw4Ju_Ax42t9VXw_AIDiBT-K"
     )
 }
 
@@ -28,8 +51,11 @@ struct SupabaseAuthClient: AuthClient {
         self.urlSession = urlSession
     }
 
-    func sendOtp(email: String) async throws {
-        let body = SupabaseOtpRequest(email: email, createUser: true)
+    let authMode: AuthMode = .otp
+    let supportsRefresh = true
+
+    func sendOtp(email: String, createUser: Bool) async throws {
+        let body = SupabaseOtpRequest(email: email, createUser: createUser)
         let request = try makeRequest(path: "/auth/v1/otp", body: body)
         _ = try await data(for: request)
     }
@@ -48,6 +74,10 @@ struct SupabaseAuthClient: AuthClient {
             email: response.user.email ?? email,
             expiresAt: expiresAt
         )
+    }
+
+    func login(email: String, password: String) async throws -> UserSession {
+        throw AuthClientError.unsupported
     }
 
     func signOut(session: UserSession) async throws {
@@ -106,10 +136,26 @@ struct SupabaseAuthClient: AuthClient {
     }
 
     func deleteAccount(session: UserSession) async throws {
+        // Best-effort cleanup of user-owned rows in public tables before deleting auth user.
+        // Requires the SQL function `public.delete_my_account_data()` (SECURITY DEFINER).
+        // If it's not present yet, we still proceed with auth deletion.
+        try? await deleteAccountData(session: session)
+
         var request = URLRequest(url: config.url.appendingPathComponent("/auth/v1/user"))
         request.httpMethod = "DELETE"
         request.setValue(config.anonKey, forHTTPHeaderField: "apikey")
         request.setValue("Bearer \(session.accessToken)", forHTTPHeaderField: "Authorization")
+
+        _ = try await data(for: request)
+    }
+
+    private func deleteAccountData(session: UserSession) async throws {
+        var request = URLRequest(url: config.url.appendingPathComponent("/rest/v1/rpc/delete_my_account_data"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(config.anonKey, forHTTPHeaderField: "apikey")
+        request.setValue("Bearer \(session.accessToken)", forHTTPHeaderField: "Authorization")
+        request.httpBody = "{}".data(using: .utf8)
 
         _ = try await data(for: request)
     }

@@ -17,3 +17,16 @@ struct UserSession: Codable, Equatable {
         )
     }
 }
+
+extension UserSession {
+    static func kris(email: String) -> UserSession {
+        let farFuture = Date().addingTimeInterval(60 * 60 * 24 * 365)
+        return UserSession(
+            accessToken: "kris-session",
+            refreshToken: "kris-session",
+            userId: email,
+            email: email,
+            expiresAt: farFuture
+        )
+    }
+}

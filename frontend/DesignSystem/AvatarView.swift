@@ -15,13 +15,24 @@ struct AvatarView: View {
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
-            Circle()
-                .fill(DesignColors.card)
-                .frame(width: 52, height: 52)
-                .overlay(
+            Group {
+                if systemImage == nil {
                     Circle()
-                        .stroke(Color.black.opacity(0.08), lineWidth: 1)
-                )
+                        .fill(AvatarGradient.gradient(for: name))
+                } else {
+                    Circle()
+                        .fill(DesignColors.card)
+                }
+            }
+            .frame(width: 52, height: 52)
+            .overlay(
+                Circle()
+                    .stroke(Color.white.opacity(0.9), lineWidth: 2)
+            )
+            .overlay(
+                Circle()
+                    .stroke(Color.black.opacity(0.08), lineWidth: 1)
+            )
 
             Group {
                 if let systemImage {
@@ -31,19 +42,22 @@ struct AvatarView: View {
                 } else {
                     Text(initials(from: name))
                         .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(DesignColors.textSecondary)
+                        .foregroundColor(DesignColors.textPrimary)
+                        .shadow(color: Color.black.opacity(0.08), radius: 1, x: 0, y: 1)
                 }
             }
+            .frame(width: 52, height: 52, alignment: .center)
 
             if showsStatus {
                 Circle()
                     .fill(isOnline ? DesignColors.accentGreen : Color.black.opacity(0.2))
-                    .frame(width: 12, height: 12)
+                    .frame(width: 10, height: 10)
+                    .shadow(color: isOnline ? DesignColors.accentGreen.opacity(0.45) : .clear, radius: 3, x: 0, y: 1)
                     .overlay(
                         Circle()
-                            .stroke(DesignColors.card, lineWidth: 2)
+                            .stroke(Color.white, lineWidth: 2)
                     )
-                    .offset(x: 2, y: 2)
+                    .offset(x: 3, y: 3)
             }
         }
     }

@@ -9,11 +9,17 @@ final class SessionManager: ObservableObject {
     private let authClient: AuthClient
     private let keychain: KeychainStore
     private let keychainService = "IminSession"
-    private let keychainAccount = "supabase"
+    private let keychainAccount: String
 
     init(authClient: AuthClient, keychain: KeychainStore) {
         self.authClient = authClient
         self.keychain = keychain
+        switch AppEnvironment.backend {
+        case .supabase:
+            keychainAccount = "supabase"
+        case .kris:
+            keychainAccount = "kris-backend"
+        }
     }
 
     func restoreSession() {
@@ -30,11 +36,11 @@ final class SessionManager: ObservableObject {
         }
     }
 
-    func sendOtp(email: String) async {
+    func sendOtp(email: String, createUser: Bool) async {
         isLoading = true
         errorMessage = nil
         do {
-            try await authClient.sendOtp(email: email)
+            try await authClient.sendOtp(email: email, createUser: createUser)
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -57,7 +63,21 @@ final class SessionManager: ObservableObject {
         isLoading = false
     }
 
+    func login(email: String, password: String) async {
+        isLoading = true
+        errorMessage = nil
+        do {
+            let newSession = try await authClient.login(email: email, password: password)
+            session = newSession
+            try persistSession(newSession)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+        isLoading = false
+    }
+
     func refreshSessionIfNeeded() async {
+        guard authClient.supportsRefresh else { return }
         guard let currentSession = session else { return }
         let refreshThreshold = Date().addingTimeInterval(60)
         guard currentSession.expiresAt <= refreshThreshold else { return }

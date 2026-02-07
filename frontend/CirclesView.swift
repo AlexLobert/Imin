@@ -1,8 +1,10 @@
 import SwiftUI
 
 struct CirclesView: View {
-    @StateObject private var viewModel = CirclesViewModel()
+    @EnvironmentObject private var circleStore: CircleStore
+    @EnvironmentObject private var sessionManager: SessionManager
     @State private var showCreateCircle = false
+    @State private var headerOpacity: Double = 0
 
     var body: some View {
         NavigationStack {
@@ -10,32 +12,54 @@ struct CirclesView: View {
                 DesignColors.background
                     .ignoresSafeArea()
 
-                VStack(spacing: 16) {
-                    header
+                ScrollView {
+                    ScrollOffsetReader(coordinateSpace: "circlesScroll")
+                    VStack(alignment: .leading, spacing: 16) {
+                        subtitle
 
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 16) {
-                            subtitle
+                        circlesList
 
-                            circlesList
+                        if let errorMessage = circleStore.errorMessage {
+                            Text(errorMessage)
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(.red)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 4)
                         }
-                        .padding(.horizontal, 20)
-                        .padding(.bottom, 24)
                     }
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 24)
                 }
-                .padding(.top, 8)
+                .coordinateSpace(name: "circlesScroll")
+                .onPreferenceChange(ScrollOffsetKey.self) { value in
+                    let progress = min(max((-value) / 14, 0), 1)
+                    headerOpacity = progress
+                }
             }
             .navigationTitle("")
             .navigationBarHidden(true)
+            .tint(.primary)
+            .safeAreaInset(edge: .top) {
+                GlassHeaderContainer(opacity: headerOpacity) {
+                    header
+                }
+            }
             .navigationDestination(for: CircleGroup.self) { circle in
                 CircleDetailView(circleId: circle.id)
-                    .environmentObject(viewModel)
+                    .environmentObject(circleStore)
             }
             .sheet(isPresented: $showCreateCircle) {
                 CreateCircleSheet { name in
-                    viewModel.createCircle(named: name)
-                    showCreateCircle = false
+                    Task {
+                        guard let session = await sessionManager.validSession() else { return }
+                        await circleStore.createCircle(named: name, session: session)
+                        showCreateCircle = false
+                    }
                 }
+            }
+            .task(id: sessionManager.session?.userId) {
+                guard let session = await sessionManager.validSession() else { return }
+                await circleStore.load(session: session)
             }
         }
     }
@@ -43,121 +67,79 @@ struct CirclesView: View {
 
 private extension CirclesView {
     var header: some View {
-        HStack {
-            Circle()
-                .fill(Color.clear)
-                .frame(width: 40, height: 40)
-
-            Spacer()
-
-            Text("Circles")
-                .font(.system(size: 22, weight: .semibold))
-                .foregroundStyle(Color.black.opacity(0.85))
-
-            Spacer()
-
-            Button {
+        IminTopNavBar(title: "Circles") {
+            TopIconCircleButton(systemName: "plus", accessibilityLabel: "Create a circle") {
                 showCreateCircle = true
-            } label: {
-                Image(systemName: "plus")
-                    .font(.system(size: 18, weight: .semibold))
-                    .frame(width: 44, height: 44)
-                    .background(Color.white.opacity(0.9))
-                    .clipShape(Circle())
-                    .shadow(color: Color.black.opacity(0.06), radius: 10, x: 0, y: 6)
             }
-            .accessibilityLabel("Create a circle")
         }
-        .padding(.horizontal, 20)
     }
 
     var subtitle: some View {
-        Text("Choose who you signal when you're in.")
-            .font(.system(size: 15, weight: .regular))
-            .foregroundStyle(Color.black.opacity(0.55))
+        EmptyView()
     }
 
     var circlesList: some View {
-        VStack(spacing: 12) {
-            ForEach(viewModel.circles) { circle in
-                NavigationLink(value: circle) {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(circle.name)
-                                .font(.system(size: 17, weight: .semibold))
-                                .foregroundStyle(Color.black.opacity(0.85))
-                            Text("\(circle.members.count) friends")
-                                .font(.system(size: 14, weight: .regular))
-                                .foregroundStyle(Color.black.opacity(0.55))
-                        }
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(Color.black.opacity(0.35))
-                    }
-                    .padding(16)
+        VStack(spacing: 0) {
+            if circleStore.isLoading {
+                HStack(spacing: 12) {
+                    ProgressView()
+                    Text("Loading circles...")
+                        .font(.system(size: 15))
+                        .foregroundStyle(DesignColors.textSecondary)
                 }
-                .buttonStyle(.plain)
-                .imInCard()
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 20)
+            } else if circleStore.circles.isEmpty {
+                VStack(spacing: 12) {
+                    Text("No circles yet.")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(DesignColors.textPrimary)
+                    Text("Create a circle to control who can see your status.")
+                        .font(.system(size: 14))
+                        .foregroundStyle(DesignColors.textSecondary)
+                        .multilineTextAlignment(.center)
+                    Button("Create circle") {
+                        showCreateCircle = true
+                    }
+                    .buttonStyle(AppPillButtonStyle(kind: .mint))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 20)
+            } else {
+                ForEach(Array(circleStore.circles.enumerated()), id: \.element.id) { index, circle in
+                    NavigationLink(value: circle) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(circle.name)
+                                    .font(.system(size: 17, weight: .semibold))
+                                    .foregroundStyle(DesignColors.textPrimary)
+                                Text("\(circle.members.count) friends")
+                                    .font(.system(size: 14, weight: .regular))
+                                    .foregroundStyle(DesignColors.textSecondary)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(DesignColors.textSecondary)
+                        }
+                        .padding(.vertical, 14)
+                    }
+                    .buttonStyle(.plain)
+
+                    if index < circleStore.circles.count - 1 {
+                        Divider()
+                            .background(ConnectColors.divider)
+                            .padding(.leading, 2)
+                    }
+                }
             }
         }
+        .padding(18)
+        .cardStyle()
     }
 }
 
-@MainActor
-final class CirclesViewModel: ObservableObject {
-    @Published var circles: [CircleGroup] = [
-        CircleGroup(name: "Inner circle", members: [
-            CircleMember(name: "Ava"),
-            CircleMember(name: "Jordan"),
-            CircleMember(name: "Maya")
-        ]),
-        CircleGroup(name: "Roommates", members: [
-            CircleMember(name: "Kai"),
-            CircleMember(name: "Lena")
-        ]),
-        CircleGroup(name: "Late-night crew", members: [
-            CircleMember(name: "Sam"),
-            CircleMember(name: "Rae"),
-            CircleMember(name: "Noah")
-        ])
-    ]
-
-    func createCircle(named name: String) {
-        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        circles.append(CircleGroup(name: trimmed, members: []))
-    }
-
-    func renameCircle(id: UUID, name: String) {
-        guard let index = circles.firstIndex(where: { $0.id == id }) else { return }
-        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        circles[index].name = trimmed
-    }
-
-    func deleteCircle(id: UUID) {
-        circles.removeAll { $0.id == id }
-    }
-
-    func addMember(to circleId: UUID, name: String) {
-        guard let index = circles.firstIndex(where: { $0.id == circleId }) else { return }
-        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        circles[index].members.append(CircleMember(name: trimmed))
-    }
-
-    func removeMember(from circleId: UUID, memberId: UUID) {
-        guard let index = circles.firstIndex(where: { $0.id == circleId }) else { return }
-        circles[index].members.removeAll { $0.id == memberId }
-    }
-
-    func circle(for id: UUID) -> CircleGroup? {
-        circles.first(where: { $0.id == id })
-    }
-}
-
-struct CircleGroup: Identifiable, Hashable {
+struct CircleGroup: Identifiable, Hashable, Codable {
     let id: UUID
     var name: String
     var members: [CircleMember]
@@ -169,88 +151,206 @@ struct CircleGroup: Identifiable, Hashable {
     }
 }
 
-struct CircleMember: Identifiable, Hashable {
+struct CircleMember: Identifiable, Hashable, Codable {
     let id: UUID
     let name: String
+    let handle: String?
 
-    init(id: UUID = UUID(), name: String) {
+    init(id: UUID = UUID(), name: String, handle: String? = nil) {
         self.id = id
         self.name = name
+        self.handle = handle
     }
 }
 
 private struct CircleDetailView: View {
     @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject private var viewModel: CirclesViewModel
+    @EnvironmentObject private var viewModel: CircleStore
+    @EnvironmentObject private var sessionManager: SessionManager
+    private let friendRequestService = FriendRequestService()
     @State private var showAddMember = false
     @State private var showRename = false
     @State private var showDelete = false
+    @State private var friends: [FriendListItem] = []
+    @State private var isLoadingFriends = false
+    @State private var friendsError: String?
 
     let circleId: UUID
 
     var body: some View {
+        let circle = viewModel.circle(for: circleId)
         ZStack {
             DesignColors.background
                 .ignoresSafeArea()
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    if let circle = viewModel.circle(for: circleId) {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(circle.name)
-                                .font(.system(size: 22, weight: .semibold))
-                                .foregroundColor(DesignColors.textPrimary)
-
-                            Text("\(circle.members.count) friends")
-                                .font(.system(size: 14))
-                                .foregroundColor(DesignColors.textSecondary)
-                        }
+                    if let circle {
 
                         HStack(spacing: 12) {
-                            Button("Add member") {
+                            Button {
                                 showAddMember = true
+                            } label: {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "person.badge.plus")
+                                        .font(.system(size: 15, weight: .semibold))
+                                    Text("Add member")
+                                        .font(.system(size: 15, weight: .semibold))
+                                }
                             }
-                            .buttonStyle(FilledPillButtonStyle())
+                            .frame(maxWidth: .infinity)
+                            .buttonStyle(.plain)
+                            .foregroundColor(DesignColors.textPrimary)
+                            .frame(height: 48)
+                            .background(
+                                Capsule(style: .continuous)
+                                    .fill(.ultraThinMaterial)
+                                    .overlay(
+                                        Capsule(style: .continuous)
+                                            .stroke(Color.white.opacity(0.55), lineWidth: 1)
+                                            .blendMode(.overlay)
+                                    )
+                                    .overlay(
+                                        Capsule(style: .continuous)
+                                            .stroke(Color.black.opacity(0.06), lineWidth: 1)
+                                    )
+                                    .overlay(
+                                        LinearGradient(
+                                            colors: [
+                                                Color.white.opacity(0.60),
+                                                Color.white.opacity(0.06),
+                                                Color.clear
+                                            ],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
+                                        .clipShape(Capsule(style: .continuous))
+                                        .blendMode(.screen)
+                                    )
+                                    .overlay(
+                                        Capsule(style: .continuous)
+                                            .stroke(AppStyle.mint.opacity(0.22), lineWidth: 1)
+                                    )
+                                    .shadow(color: .black.opacity(0.08), radius: 14, x: 0, y: 8)
+                                    .shadow(color: .black.opacity(0.04), radius: 2, x: 0, y: 1)
+                            )
 
-                            Button("Rename") {
+                            Button {
                                 showRename = true
+                            } label: {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "pencil")
+                                        .font(.system(size: 15, weight: .semibold))
+                                    Text("Rename")
+                                        .font(.system(size: 15, weight: .semibold))
+                                }
                             }
-                            .buttonStyle(OutlinedPillButtonStyle())
+                            .frame(maxWidth: .infinity)
+                            .buttonStyle(.plain)
+                            .foregroundColor(DesignColors.textPrimary)
+                            .frame(height: 48)
+                            .background(
+                                Capsule(style: .continuous)
+                                    .fill(.ultraThinMaterial)
+                                    .overlay(
+                                        Capsule(style: .continuous)
+                                            .stroke(Color.white.opacity(0.55), lineWidth: 1)
+                                            .blendMode(.overlay)
+                                    )
+                                    .overlay(
+                                        Capsule(style: .continuous)
+                                            .stroke(Color.black.opacity(0.06), lineWidth: 1)
+                                    )
+                                    .overlay(
+                                        LinearGradient(
+                                            colors: [
+                                                Color.white.opacity(0.60),
+                                                Color.white.opacity(0.06),
+                                                Color.clear
+                                            ],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
+                                        .clipShape(Capsule(style: .continuous))
+                                        .blendMode(.screen)
+                                    )
+                                    .shadow(color: .black.opacity(0.08), radius: 14, x: 0, y: 8)
+                                    .shadow(color: .black.opacity(0.04), radius: 2, x: 0, y: 1)
+                            )
                         }
+                        .frame(maxWidth: .infinity)
 
-                        VStack(spacing: 12) {
-                            ForEach(circle.members) { member in
-                                HStack {
-                                    Text(member.name)
-                                        .font(.system(size: 16, weight: .semibold))
-                                        .foregroundColor(DesignColors.textPrimary)
+                        VStack(spacing: 0) {
+                            ForEach(Array(circle.members.enumerated()), id: \.element.id) { index, member in
+                                HStack(spacing: 12) {
+                                    AvatarView(name: member.name, systemImage: "person.fill")
+
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(member.name)
+                                            .font(.system(size: 16, weight: .semibold))
+                                            .foregroundColor(DesignColors.textPrimary)
+                                            .lineLimit(1)
+                                        if let handle = member.handle, !handle.isEmpty {
+                                            Text(handle)
+                                                .font(.system(size: 13, weight: .medium))
+                                                .foregroundColor(DesignColors.textSecondary)
+                                                .lineLimit(1)
+                                        }
+                                    }
+
                                     Spacer()
-                                    Button(action: {
-                                        viewModel.removeMember(from: circleId, memberId: member.id)
-                                    }) {
+
+                                    Button {
+                                        Task {
+                                            guard let session = await sessionManager.validSession() else { return }
+                                            await viewModel.removeMember(from: circleId, memberId: member.id, session: session)
+                                        }
+                                    } label: {
                                         Image(systemName: "xmark")
-                                            .font(.system(size: 12, weight: .bold))
-                                            .frame(width: 28, height: 28)
-                                            .background(Color.black.opacity(0.08))
+                                            .font(.system(size: 11, weight: .bold))
                                             .foregroundColor(DesignColors.textSecondary)
-                                            .clipShape(Circle())
+                                            .frame(width: 28, height: 28)
+                                            .background(
+                                                Circle()
+                                                    .fill(.ultraThinMaterial)
+                                                    .overlay(
+                                                        Circle()
+                                                            .stroke(Color.white.opacity(0.55), lineWidth: 1)
+                                                            .blendMode(.overlay)
+                                                    )
+                                                    .overlay(
+                                                        Circle()
+                                                            .stroke(Color.black.opacity(0.06), lineWidth: 1)
+                                                    )
+                                            )
                                     }
                                     .buttonStyle(.plain)
                                 }
-                                .padding(.vertical, 14)
                                 .padding(.horizontal, 16)
-                                .background(DesignColors.card)
-                                .cornerRadius(22)
-                                .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 2)
+                                .padding(.vertical, 12)
+
+                                if index < circle.members.count - 1 {
+                                    Divider()
+                                        .background(ConnectColors.divider)
+                                        .padding(.leading, 16 + 52 + 12)
+                                }
                             }
                         }
+                        .padding(.vertical, 6)
+                        .glassCardStyle(cornerRadius: 22)
 
                         Button("Delete circle") {
                             showDelete = true
                         }
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(DesignColors.textSecondary)
-                        .padding(.top, 4)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.red)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .glassCardStyle(cornerRadius: 22)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                                .stroke(Color.red.opacity(0.18), lineWidth: 1)
+                        )
                     }
                 }
                 .padding(20)
@@ -258,7 +358,20 @@ private struct CircleDetailView: View {
         }
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
+        .tint(.primary)
         .toolbar {
+            ToolbarItem(placement: .principal) {
+                if let circle {
+                    VStack(spacing: 2) {
+                        Text(circle.name)
+                            .font(.system(size: 20, weight: .semibold))
+                            .foregroundColor(DesignColors.textPrimary)
+                        Text("\(circle.members.count) friends")
+                            .font(.system(size: 12))
+                            .foregroundColor(DesignColors.textSecondary)
+                    }
+                }
+            }
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button("Done") {
                     dismiss()
@@ -267,25 +380,44 @@ private struct CircleDetailView: View {
             }
         }
         .sheet(isPresented: $showAddMember) {
-            CircleTextEntrySheet(title: "Add member", buttonTitle: "Add") { name in
-                viewModel.addMember(to: circleId, name: name)
-                showAddMember = false
+            CircleMemberPickerSheet(
+                friends: availableFriends(for: circle),
+                isLoading: isLoadingFriends,
+                errorMessage: friendsError,
+                onSelect: { friend in
+                    Task {
+                        guard let session = await sessionManager.validSession() else { return }
+                        await viewModel.addMember(to: circleId, friend: friend, session: session)
+                        showAddMember = false
+                    }
+                }
+            )
+            .glassSheetStyle()
+            .task {
+                await loadFriends()
             }
         }
         .sheet(isPresented: $showRename) {
             CircleTextEntrySheet(title: "Rename circle", buttonTitle: "Save") { name in
-                viewModel.renameCircle(id: circleId, name: name)
-                showRename = false
+                Task {
+                    guard let session = await sessionManager.validSession() else { return }
+                    await viewModel.renameCircle(id: circleId, name: name, session: session)
+                    showRename = false
+                }
             }
+            .glassSheetStyle()
         }
         .alert("Delete circle?", isPresented: $showDelete) {
             Button("Delete", role: .destructive) {
-                viewModel.deleteCircle(id: circleId)
-                dismiss()
+                Task {
+                    guard let session = await sessionManager.validSession() else { return }
+                    await viewModel.deleteCircle(id: circleId, session: session)
+                    dismiss()
+                }
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("This will remove the circle and its members.")
+            Text("This will delete this circle.")
         }
     }
 }
@@ -297,16 +429,76 @@ private struct CreateCircleSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Create a circle")
-                .font(.custom("Avenir Next", size: 20))
-                .fontWeight(.bold)
+                .font(.system(size: 20, weight: .semibold))
 
             TextField("Circle name", text: $name)
-                .textFieldStyle(.roundedBorder)
+                .padding(16)
+                .background(Color(.systemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .cardStyle()
 
             Button("Create") {
                 onCreate(name)
             }
-            .buttonStyle(FilledCircleButtonStyle())
+            .buttonStyle(AppPillButtonStyle(kind: .mint))
+        }
+        .padding(24)
+    }
+}
+
+private struct CircleMemberPickerSheet: View {
+    let friends: [FriendListItem]
+    let isLoading: Bool
+    let errorMessage: String?
+    let onSelect: (FriendListItem) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Add member")
+                .font(.system(size: 20, weight: .semibold))
+
+            if isLoading {
+                Text("Loading friends...")
+                    .font(.system(size: 14))
+                    .foregroundColor(.secondary)
+            } else if let errorMessage {
+                Text(errorMessage)
+                    .font(.system(size: 14))
+                    .foregroundColor(.red)
+            } else if friends.isEmpty {
+                Text("No friends to add yet.")
+                    .font(.system(size: 14))
+                    .foregroundColor(.secondary)
+            } else {
+                ScrollView {
+                    VStack(spacing: 10) {
+                        ForEach(friends) { friend in
+                            Button(action: {
+                                onSelect(friend)
+                            }) {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(friend.name)
+                                            .font(.system(size: 16, weight: .semibold))
+                                            .foregroundColor(DesignColors.textPrimary)
+                                        Text(friend.handle)
+                                            .font(.system(size: 13))
+                                            .foregroundColor(DesignColors.textSecondary)
+                                    }
+                                    Spacer()
+                                    Image(systemName: "plus.circle.fill")
+                                        .foregroundColor(AppColors.accentGreen)
+                                }
+                                .padding(.vertical, 12)
+                                .padding(.horizontal, 16)
+                                .cardStyle()
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
         }
         .padding(24)
     }
@@ -321,71 +513,44 @@ private struct CircleTextEntrySheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text(title)
-                .font(.custom("Avenir Next", size: 20))
-                .fontWeight(.bold)
+                .font(.system(size: 20, weight: .semibold))
 
             TextField("Name", text: $value)
-                .textFieldStyle(.roundedBorder)
+                .padding(16)
+                .background(Color(.systemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .cardStyle()
 
             Button(buttonTitle) {
                 onConfirm(value)
             }
-            .buttonStyle(FilledCircleButtonStyle())
+            .buttonStyle(AppPillButtonStyle(kind: .mint))
         }
         .padding(24)
     }
 }
 
-private struct FilledPillButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 14, weight: .semibold))
-            .padding(.vertical, 10)
-            .padding(.horizontal, 16)
-            .background(Color(.systemGray5).opacity(configuration.isPressed ? 0.7 : 1.0))
-            .foregroundColor(DesignColors.textPrimary)
-            .clipShape(Capsule())
-    }
-}
+private extension CircleDetailView {
+    func loadFriends() async {
+        guard !isLoadingFriends else { return }
+        isLoadingFriends = true
+        friendsError = nil
+        defer { isLoadingFriends = false }
 
-private struct OutlinedPillButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 14, weight: .semibold))
-            .padding(.vertical, 10)
-            .padding(.horizontal, 16)
-            .background(DesignColors.card)
-            .foregroundColor(DesignColors.textPrimary)
-            .clipShape(Capsule())
-            .overlay(
-                Capsule()
-                    .stroke(Color.black.opacity(0.08), lineWidth: 1)
-            )
+        guard let session = await sessionManager.validSession() else { return }
+        do {
+            friends = try await friendRequestService.fetchFriends(session: session)
+        } catch {
+            friendsError = error.localizedDescription
+        }
     }
-}
 
-private struct FilledCircleButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.custom("Avenir Next", size: 14))
-            .fontWeight(.bold)
-            .padding(.vertical, 10)
-            .padding(.horizontal, 14)
-            .background(Color(red: 0.55, green: 0.6, blue: 0.7).opacity(configuration.isPressed ? 0.7 : 1.0))
-            .foregroundColor(.white)
-            .cornerRadius(12)
-    }
-}
-
-private struct OutlineCircleButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.custom("Avenir Next", size: 14))
-            .fontWeight(.bold)
-            .padding(.vertical, 10)
-            .padding(.horizontal, 14)
-            .background(Color(red: 0.98, green: 0.95, blue: 0.85))
-            .foregroundColor(.black)
-            .cornerRadius(12)
+    func availableFriends(for circle: CircleGroup?) -> [FriendListItem] {
+        guard let circle else { return friends }
+        let existing = Set(circle.members.map(\.id))
+        return friends.filter { friend in
+            guard let id = UUID(uuidString: friend.id) else { return false }
+            return !existing.contains(id)
+        }
     }
 }

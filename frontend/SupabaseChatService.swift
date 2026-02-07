@@ -10,21 +10,20 @@ struct SupabaseChatService: ChatServiceProtocol {
     }
 
     func fetchInUsers(session: UserSession) async throws -> [InUser] {
-        let availabilityUrl = try makeUrl(
-            path: "/rest/v1/availability",
-            queryItems: [
-                URLQueryItem(name: "select", value: "user_id"),
-                URLQueryItem(name: "state", value: "eq.in")
-            ]
+        let visibleUrl = try makeUrl(
+            path: "/rest/v1/rpc/get_visible_in_users",
+            queryItems: []
         )
 
-        var availabilityRequest = URLRequest(url: availabilityUrl)
-        availabilityRequest.httpMethod = "GET"
-        addHeaders(to: &availabilityRequest, session: session)
-        let availabilityData = try await data(for: availabilityRequest)
-        let availability = try makeDecoder().decode([AvailabilityRow].self, from: availabilityData)
+        var visibleRequest = URLRequest(url: visibleUrl)
+        visibleRequest.httpMethod = "POST"
+        addHeaders(to: &visibleRequest, session: session)
+        visibleRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        visibleRequest.httpBody = "{}".data(using: .utf8)
+        let visibleData = try await data(for: visibleRequest)
+        let visibleRows = try makeDecoder().decode([VisibleUserRow].self, from: visibleData)
 
-        let userIds = availability
+        let userIds = visibleRows
             .map { $0.userId }
             .filter { $0 != session.userId }
 
@@ -77,14 +76,21 @@ struct SupabaseChatService: ChatServiceProtocol {
         let participantMap = try await fetchParticipants(threadIds: threadIds, session: session)
 
         return threads.map { thread in
-            let participant = participantMap[thread.id]
-            let title = thread.title ?? participant?.name ?? "Chat"
+            let participants = participantMap[thread.id, default: []].map { profile in
+                UserPreview(
+                    id: UUID(uuidString: profile.id) ?? UUID(),
+                    name: profile.name ?? profile.handle ?? "Chat",
+                    status: .out
+                )
+            }
+            let title = resolvedTitle(threadTitle: thread.title, participants: participants)
             return ChatThread(
                 id: thread.id,
                 title: title,
-                participantId: participant?.id ?? "",
+                participantId: participantMap[thread.id]?.first?.id ?? "",
                 lastMessage: lastMessages[thread.id]?.body,
-                updatedAt: thread.updatedAt
+                updatedAt: thread.updatedAt,
+                participants: participants
             )
         }.sorted { $0.updatedAt > $1.updatedAt }
     }
@@ -145,6 +151,22 @@ struct SupabaseChatService: ChatServiceProtocol {
         try await updateThreadTimestamp(threadId: threadId, session: session)
 
         return message.toMessage()
+    }
+
+    func deleteThread(threadId: String, session: UserSession) async throws {
+        let url = try makeUrl(
+            path: "/rest/v1/thread_members",
+            queryItems: [
+                URLQueryItem(name: "thread_id", value: "eq.\(threadId)"),
+                URLQueryItem(name: "user_id", value: "eq.\(session.userId)")
+            ]
+        )
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        addHeaders(to: &request, session: session)
+
+        _ = try await data(for: request)
     }
 
     private func findThread(with user: InUser, session: UserSession) async throws -> ChatThread? {
@@ -220,7 +242,7 @@ struct SupabaseChatService: ChatServiceProtocol {
         return map
     }
 
-    private func fetchParticipants(threadIds: [String], session: UserSession) async throws -> [String: ProfileRow] {
+    private func fetchParticipants(threadIds: [String], session: UserSession) async throws -> [String: [ProfileRow]] {
         let url = try makeUrl(
             path: "/rest/v1/thread_members",
             queryItems: [
@@ -254,10 +276,10 @@ struct SupabaseChatService: ChatServiceProtocol {
         let profiles = try makeDecoder().decode([ProfileRow].self, from: profileData)
         let profileMap = Dictionary(uniqueKeysWithValues: profiles.map { ($0.id, $0) })
 
-        var map: [String: ProfileRow] = [:]
+        var map: [String: [ProfileRow]] = [:]
         for row in rows {
             if let profile = profileMap[row.userId] {
-                map[row.threadId] = profile
+                map[row.threadId, default: []].append(profile)
             }
         }
         return map
@@ -349,7 +371,8 @@ struct SupabaseChatService: ChatServiceProtocol {
         }
 
         guard (200..<300).contains(httpResponse.statusCode) else {
-            throw SupabaseChatError.requestFailed(statusCode: httpResponse.statusCode)
+            let message = decodeErrorMessage(from: data)
+            throw SupabaseChatError.requestFailed(statusCode: httpResponse.statusCode, message: message)
         }
 
         return data
@@ -363,16 +386,48 @@ struct SupabaseChatService: ChatServiceProtocol {
 
     private func makeDecoder() -> JSONDecoder {
         let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
+        decoder.dateDecodingStrategy = .custom(DateCoders.decodeISO8601)
         return decoder
     }
 
     private func shortId(_ id: String) -> String {
         String(id.prefix(6))
     }
+
+    private func resolvedTitle(threadTitle: String?, participants: [UserPreview]) -> String {
+        let cleaned = threadTitle?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !cleaned.isEmpty, cleaned.lowercased() != "chat" {
+            return cleaned
+        }
+        if let name = participants.first?.name, !name.isEmpty {
+            return name
+        }
+        return "Chat"
+    }
+
+    private func decodeErrorMessage(from data: Data) -> String {
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            if let message = json["message"] as? String {
+                return message
+            }
+            if let error = json["error"] as? String {
+                return error
+            }
+            if let errorDesc = json["error_description"] as? String {
+                return errorDesc
+            }
+            if let details = json["details"] as? String {
+                return details
+            }
+            if let hint = json["hint"] as? String {
+                return hint
+            }
+        }
+        return "Request failed"
+    }
 }
 
-private struct AvailabilityRow: Decodable {
+private struct VisibleUserRow: Decodable {
     let userId: String
 
     enum CodingKeys: String, CodingKey {
@@ -478,6 +533,21 @@ private struct NewMessageRow: Encodable {
 enum SupabaseChatError: Error {
     case invalidUrl
     case invalidResponse
-    case requestFailed(statusCode: Int)
+    case requestFailed(statusCode: Int, message: String)
     case emptyResponse
+}
+
+extension SupabaseChatError: LocalizedError {
+    var errorDescription: String? {
+        switch self {
+        case .invalidUrl:
+            return "Invalid chat URL"
+        case .invalidResponse:
+            return "Invalid response from chat service"
+        case let .requestFailed(statusCode, message):
+            return "Chat error (\(statusCode)): \(message)"
+        case .emptyResponse:
+            return "No data returned from chat service"
+        }
+    }
 }

@@ -17,7 +17,8 @@ struct FilterPillsView: View {
         .padding(4)
         .background(
             Capsule()
-                .fill(ConnectColors.muted)
+                .fill(Color(white: 0.95))
         )
+        .shadow(color: .black.opacity(0.05), radius: 20, x: 0, y: 4)
     }
 }

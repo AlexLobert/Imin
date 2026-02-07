@@ -1,0 +1,4 @@
+APP_BACKEND = supabase
+SUPABASE_URL = https://mcgviepzewadfnsmknqr.supabase.co
+SUPABASE_ANON_KEY = sb_publishable_O_d8pmWaw4Ju_Ax42t9VXw_AIDiBT-K
+CHAT_BACKEND_ENABLED = 1
